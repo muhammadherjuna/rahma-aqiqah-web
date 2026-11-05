@@ -5,7 +5,7 @@ import {
   Users, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock,
   Truck, ChefHat, Scissors, Eye, EyeOff, X, FileText, Camera, Award,
   Package, Shield, Upload, Sun, Sunset, LogOut, ExternalLink, UserCheck,
-  RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Sparkles, Search, ChevronDown, Filter,
+  RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Search, ChevronDown, Filter,
   ChevronLeft, ChevronRight, KeyRound, Lock
 } from 'lucide-react';
 import {
@@ -323,8 +323,8 @@ function UploadSyariatModal({ pesanan, onClose, onSave }) {
 
             {compressionInfo && (
               <div className="mt-2 p-2 rounded-lg bg-emerald-100/70 border border-emerald-300 text-xs text-emerald-800 flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <Sparkles size={13} className="text-emerald-600" />
+                <span className="flex items-center gap-1 font-medium">
+                  <CheckCircle size={13} className="text-emerald-700" />
                   WebP: {compressionInfo.original} &rarr; {compressionInfo.compressed}
                 </span>
                 <span className="bg-emerald-700 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">

@@ -4,7 +4,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ShieldCheck, Lock, User, ArrowLeft,
   AlertCircle, Eye, EyeOff,
-  Award, Calendar, ChefHat, Sparkles, Check
+  Award, Calendar, ChefHat, Check
 } from 'lucide-react';
 import {
   getAdminCredentials,
@@ -120,14 +120,14 @@ export default function LoginAdmin() {
 
           <div className="mt-4 lg:mt-6">
             <div className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-amber-400/30 mb-2">
-              <Sparkles size={12} />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
               <span>Sistem Manajemen Operasional & Syariat</span>
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-tight">
               Rahma Aqiqah Kebumen
             </h1>
             <p className="text-emerald-200 text-xs sm:text-sm mt-1 font-light leading-relaxed">
-              Masakan Lezat dan Sesuai Syariat &mdash; Jagonya Aqiqah Siap Saji.
+              Masakan Lezat dan Sesuai Syariat. Jagonya Aqiqah Siap Saji.
             </p>
           </div>
         </div>
@@ -195,11 +195,10 @@ export default function LoginAdmin() {
           <div className="bg-white rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden">
             {/* Header Form */}
             <div className="p-5 sm:p-6 pb-3 border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white">
-              <div className="flex items-center justify-between gap-3 mb-1.5">
-                <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              <div className="mb-2">
+                <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                   Portal Masuk Pengelola
                 </span>
-                <span className="text-[10px] font-mono text-slate-400">v2.4 Syariat RBAC</span>
               </div>
               <h2 className="text-xl font-bold text-slate-800 tracking-tight">
                 Selamat Datang
