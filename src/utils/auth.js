@@ -16,8 +16,8 @@ export const ADMIN_CREDENTIALS = [
   {
     username: 'admin',
     password: 'admin123',
-    nama: 'Tim Operasional Dapur',
-    peran: 'Staf Operasional Dapur',
+    nama: 'Staf Produksi & Logistik',
+    peran: 'Operasional Dapur',
     role: 'kitchen',
     deskripsi: 'Akses operasional: Antrean Masak, Tiket Dapur & Dokumentasi Syariat',
     noWa: '081578733874',

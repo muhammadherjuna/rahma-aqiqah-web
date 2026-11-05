@@ -1071,25 +1071,32 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
+              <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
                 isOwner
                   ? 'bg-amber-400/20 text-amber-300 border-amber-400/50'
                   : 'bg-blue-400/20 text-blue-200 border-blue-400/50'
               }`}>
-                {isOwner ? 'Pemilik & Pengelola Utama' : 'Tim Operasional Dapur'}
+                {isOwner ? (
+                  <>Akses Eksekutif Pemilik</>
+                ) : (
+                  <>
+                    <ChefHat size={12} className="text-blue-300" />
+                    Akses Operasional Dapur
+                  </>
+                )}
               </span>
               <span className="text-xs text-emerald-200">
-                Masuk sebagai: <strong>{session?.nama || (isOwner ? 'Bapak Abdul Ghofar' : 'Tim Operasional Dapur')}</strong>
+                Masuk sebagai: <strong>{isOwner ? 'Bapak Abdul Ghofar' : (session?.nama && session.nama !== 'Tim Operasional Dapur' ? session.nama : 'Staf Produksi & Logistik')}</strong>
               </span>
             </div>
             <h2 className="text-xl font-bold mt-1">
               {isOwner ? 'Dashboard Manajemen Eksekutif & Syariat' : 'Dashboard Operasional Dapur & Pengiriman'}
             </h2>
             <p className="text-emerald-200 text-xs mt-0.5">
-              Rahma Aqiqah Kebumen &middot; {today} &middot;{' '}
+              Rahma Aqiqah Kebumen &middot; {formatTanggalIndonesia(today, true)} &middot;{' '}
               {isOwner
-                ? 'Akses Penuh: Keuangan, Verifikasi Pembayaran & Kuota'
-                : 'Mode Dapur: Antrean Masakan, Cetak Tiket & Dokumentasi Syariat'}
+                ? 'Kontrol Finansial, Omzet & Kuota Kalender'
+                : 'Fokus: Antrean Masak, Tiket Dapur & Dokumentasi Syariat'}
             </p>
           </div>
 
