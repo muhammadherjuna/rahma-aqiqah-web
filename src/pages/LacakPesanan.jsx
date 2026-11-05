@@ -3,10 +3,10 @@ import { useState, useEffect } from 'react';
 import {
   Search, CheckCircle, Clock, Truck, ChefHat, Scissors, FileText,
   Download, Play, Camera, Award, AlertCircle, Info, Loader2, Printer, X, ShieldCheck,
-  Maximize2
+  Maximize2, History, RotateCcw, MessageSquare
 } from 'lucide-react';
 import {
-  PESANAN_INIT, STATUS_OPERASIONAL_LIST, formatRupiah,
+  PESANAN_INIT, STATUS_OPERASIONAL_LIST, formatRupiah, formatTanggalIndonesia,
   getPaketById, getMenuDagingById, getMenuJeroanById, getNasiBoxById
 } from '../data/mockData';
 import { getOrderById } from '../lib/supabaseClient';
@@ -170,7 +170,7 @@ function SertifikatModal({ pesanan, onClose }) {
               <div className="grid grid-cols-2 gap-2 text-left font-sans text-[11px] sm:text-xs text-gray-700 max-w-md mx-auto my-3 bg-white/80 p-3 rounded-xl border border-gray-200">
                 <div>
                   <span className="text-gray-400 block text-[10px]">Tanggal Lahir:</span>
-                  <span className="font-semibold">{pesanan.tglLahir}</span>
+                  <span className="font-semibold">{formatTanggalIndonesia(pesanan.tglLahir, false)}</span>
                 </div>
                 <div>
                   <span className="text-gray-400 block text-[10px]">Jenis Kelamin:</span>
@@ -182,7 +182,7 @@ function SertifikatModal({ pesanan, onClose }) {
                 </div>
                 <div>
                   <span className="text-gray-400 block text-[10px]">Tanggal Pelaksanaan:</span>
-                  <span className="font-semibold">{pesanan.tglProduksi}</span>
+                  <span className="font-semibold">{formatTanggalIndonesia(pesanan.tglProduksi, true)}</span>
                 </div>
               </div>
 
@@ -207,7 +207,7 @@ function SertifikatModal({ pesanan, onClose }) {
                   <p className="text-[9px] text-gray-400">Juru Sembelih Halal</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-gray-500 text-[10px]">Kebumen, {pesanan.tglProduksi}</p>
+                  <p className="text-gray-500 text-[10px]">Kebumen, {formatTanggalIndonesia(pesanan.tglProduksi, false)}</p>
                   <p className="text-gray-500 text-[10px]">Pimpinan Rahma Aqiqah</p>
                   <div className="h-12 flex items-center justify-center">
                     <span className="font-serif italic font-bold text-emerald-800 text-sm underline decoration-emerald-500">
@@ -244,53 +244,79 @@ export default function LacakPesanan({ pesananList }) {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showFotoModal, setShowFotoModal] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isFromStorage, setIsFromStorage] = useState(false);
 
-  // Auto-search jika ada parameter ?inv= di URL
+  const cariInvoice = async (invCode, fromStorage = false) => {
+    const cleanInv = (invCode || '').trim();
+    if (!cleanInv) return;
+
+    setIsSearching(true);
+    setNotFound(false);
+
+    try {
+      const liveOrder = await getOrderById(cleanInv);
+      if (liveOrder) {
+        setHasilCari(liveOrder);
+        setNotFound(false);
+        setIsFromStorage(fromStorage);
+        try {
+          localStorage.setItem('rahma_last_invoice', liveOrder.id);
+        } catch (_) {}
+      } else {
+        const localFound = pesananList?.find(p => p.id.toLowerCase() === cleanInv.toLowerCase());
+        if (localFound) {
+          setHasilCari(localFound);
+          setNotFound(false);
+          setIsFromStorage(fromStorage);
+          try {
+            localStorage.setItem('rahma_last_invoice', localFound.id);
+          } catch (_) {}
+        } else {
+          setHasilCari(null);
+          setNotFound(true);
+          setIsFromStorage(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error saat melacak pesanan:', err);
+      setNotFound(true);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Auto-search jika ada parameter ?inv= di URL atau ada tersimpan di perangkat pemesan
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const qInv = params.get('inv');
     if (qInv) {
       setInvoiceInput(qInv);
-      (async () => {
-        setIsSearching(true);
-        const liveOrder = await getOrderById(qInv);
-        if (liveOrder) {
-          setHasilCari(liveOrder);
-          setNotFound(false);
-        } else {
-          const localFound = pesananList?.find(p => p.id.toLowerCase() === qInv.trim().toLowerCase());
-          if (localFound) {
-            setHasilCari(localFound);
-            setNotFound(false);
-          } else {
-            setNotFound(true);
-          }
-        }
-        setIsSearching(false);
-      })();
+      cariInvoice(qInv, false);
+      return;
     }
+
+    try {
+      const savedInv = localStorage.getItem('rahma_last_invoice');
+      if (savedInv) {
+        setInvoiceInput(savedInv);
+        cariInvoice(savedInv, true);
+      }
+    } catch (_) {}
   }, [pesananList]);
 
-  const handleCari = async (e) => {
+  const handleCari = (e) => {
     e.preventDefault();
-    if (!invoiceInput.trim()) return;
+    cariInvoice(invoiceInput, false);
+  };
 
-    setIsSearching(true);
-    const liveOrder = await getOrderById(invoiceInput);
-    if (liveOrder) {
-      setHasilCari(liveOrder);
-      setNotFound(false);
-    } else {
-      const localFound = pesananList?.find(p => p.id.toLowerCase() === invoiceInput.trim().toLowerCase());
-      if (localFound) {
-        setHasilCari(localFound);
-        setNotFound(false);
-      } else {
-        setHasilCari(null);
-        setNotFound(true);
-      }
-    }
-    setIsSearching(false);
+  const handleClearHistory = () => {
+    try {
+      localStorage.removeItem('rahma_last_invoice');
+    } catch (_) {}
+    setInvoiceInput('');
+    setHasilCari(null);
+    setNotFound(false);
+    setIsFromStorage(false);
   };
 
   const p = hasilCari;
@@ -331,7 +357,7 @@ export default function LacakPesanan({ pesananList }) {
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-emerald-800">Lacak Pesanan dan Dokumentasi Syariat</h2>
-          <p className="text-gray-500 text-sm mt-1">Masukkan nomor invoice untuk melihat status pesanan Anda</p>
+          <p className="text-gray-500 text-sm mt-1">Masukkan nomor invoice unik untuk melihat progres tahapan aqiqah Anda</p>
         </div>
 
         <form onSubmit={handleCari} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -340,24 +366,32 @@ export default function LacakPesanan({ pesananList }) {
             <input
               value={invoiceInput}
               onChange={e => setInvoiceInput(e.target.value)}
-              placeholder="Contoh: INV-20261104-001"
+              placeholder="Contoh: INV-05112026-203"
               className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-emerald-500 focus:outline-none font-mono"
             />
             <button type="submit"
               disabled={isSearching}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-60">
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-60 cursor-pointer">
               {isSearching ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />} Lacak
             </button>
           </div>
-          <div className="flex flex-wrap gap-2 mt-3 items-center">
-            <p className="text-xs text-gray-400">Contoh invoice aktif:</p>
-            {pesananList.map(p => (
-              <button type="button" key={p.id} onClick={() => setInvoiceInput(p.id)}
-                className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full hover:bg-emerald-100 font-mono transition-colors">
-                {p.id}
+
+          {/* Notifikasi jika invoice diambil dari memori perangkat */}
+          {isFromStorage && p && (
+            <div className="mt-3.5 flex flex-wrap items-center justify-between bg-emerald-50/80 border border-emerald-200/80 rounded-xl px-3.5 py-2.5 text-xs text-emerald-800 gap-2">
+              <div className="flex items-center gap-2">
+                <History size={15} className="text-emerald-600 shrink-0" />
+                <span>Menampilkan pesanan dari riwayat perangkat ini (<strong>{p.id}</strong>)</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+              >
+                <RotateCcw size={13} /> Lacak Invoice Lain
               </button>
-            ))}
-          </div>
+            </div>
+          )}
         </form>
 
         {notFound && (
@@ -378,7 +412,7 @@ export default function LacakPesanan({ pesananList }) {
                     {p.namaAnak} {p.binBinti} {p.namaOrtu}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    Lahir: {p.tglLahir} &nbsp;&middot;&nbsp; {p.jenisKelamin === 'laki' ? 'Laki-laki' : 'Perempuan'} &nbsp;&middot;&nbsp; {p.jumlahEkor} Ekor
+                    Lahir: {formatTanggalIndonesia(p.tglLahir, false)} &nbsp;&middot;&nbsp; {p.jenisKelamin === 'laki' ? 'Laki-laki' : 'Perempuan'} &nbsp;&middot;&nbsp; {p.jumlahEkor} Ekor
                   </p>
                 </div>
                 <div className="text-right">
@@ -402,7 +436,7 @@ export default function LacakPesanan({ pesananList }) {
                     ['Olahan Daging', getMenuDagingById(p.menuDaging)?.nama || 'Standar Dapur'],
                     ['Olahan Jeroan', getMenuJeroanById(p.menuJeroan)?.nama || 'Standar Dapur'],
                     ['Nasi Box', p.nasiBoxId !== 'none' ? `${nasiBox?.nama} \u00d7 ${p.jumlahBox} box` : 'Tanpa Nasi Box'],
-                    ['Jadwal Produksi', `${p.tglProduksi} \u00b7 ${p.sesi === 'pagi' ? 'Pagi (08.00 sampai 11.00 WIB)' : 'Sore (13.00 sampai 16.00 WIB)'}`],
+                    ['Jadwal Produksi', `${formatTanggalIndonesia(p.tglProduksi, true)} \u00b7 ${p.sesi === 'pagi' ? 'Pagi (08.00 sampai 11.00 WIB)' : 'Sore (13.00 sampai 16.00 WIB)'}`],
                     ['Pembayaran', p.statusPembayaran],
                     ['Total', formatRupiah(totalHarga)],
                     ...(p.pembayaran === 'dp' ? [['DP Dibayar', formatRupiah(dp50)], ['Sisa Lunas', formatRupiah(totalHarga - dp50)]] : []),
@@ -506,26 +540,38 @@ export default function LacakPesanan({ pesananList }) {
         {!p && !notFound && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search size={32} className="text-emerald-500" />
+              <Search size={30} className="text-emerald-600" />
             </div>
-            <h3 className="font-bold text-emerald-800 mb-2">Lacak Status Pesanan Anda</h3>
-            <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
-              Masukkan nomor invoice yang diterima saat konfirmasi pesanan. Anda dapat memantau
-              setiap tahap mulai dari jadwal hingga dokumentasi syariat.
+            <h3 className="font-bold text-emerald-900 text-lg mb-2">Cek Progres & Dokumentasi Syariat</h3>
+            <p className="text-gray-500 text-sm mb-6 max-w-lg mx-auto">
+              Ketikkan nomor invoice unik yang Anda peroleh saat pemesanan (tercantum pada pesan WhatsApp) pada kolom di atas untuk memantau proses penyembelihan hingga pengiriman.
             </p>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mt-6">
+
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 max-w-2xl mx-auto my-6">
               {STATUS_OPERASIONAL_LIST.map((s) => {
                 const info = STATUS_ICONS[s];
                 const Icon = info?.icon || CheckCircle;
                 return (
-                  <div key={s} className="flex flex-col items-center gap-1">
-                    <div className={`w-10 h-10 rounded-full ${info?.bg} flex items-center justify-center`}>
-                      <Icon size={18} className={info?.color} />
+                  <div key={s} className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-gray-50/70 border border-gray-100">
+                    <div className={`w-9 h-9 rounded-full ${info?.bg} flex items-center justify-center`}>
+                      <Icon size={17} className={info?.color} />
                     </div>
-                    <p className="text-[10px] text-gray-500 text-center leading-tight">{s}</p>
+                    <p className="text-[10px] text-gray-600 text-center font-medium leading-tight">{s}</p>
                   </div>
                 );
               })}
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-500">
+              <span>Lupa nomor invoice Anda?</span>
+              <a
+                href="https://wa.me/6281578733874?text=Assalamualaikum%20Admin%20Rahma%20Aqiqah,%20mohon%20bantuan%20cek%20nomor%20invoice%20pesanan%20saya"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-lg transition-colors"
+              >
+                <MessageSquare size={14} /> Hubungi WhatsApp Kami
+              </a>
             </div>
           </div>
         )}

@@ -290,6 +290,11 @@ export default function KalkulatorPesan({ onPesanBerhasil }) {
     if (result.success) {
       setSubmittedInvoice(inv);
       setSubmitted(true);
+      try {
+        localStorage.setItem('rahma_last_invoice', inv);
+      } catch (err) {
+        console.warn('Gagal menyimpan invoice ke localStorage:', err);
+      }
       await loadQuotas();
       if (onPesanBerhasil) {
         onPesanBerhasil(orderPayload);
