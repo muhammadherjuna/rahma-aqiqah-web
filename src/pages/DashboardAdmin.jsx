@@ -5,7 +5,8 @@ import {
   Users, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock,
   Truck, ChefHat, Scissors, Eye, X, FileText, Camera, Award,
   Package, Shield, Upload, Sun, Sunset, LogOut, ExternalLink, UserCheck,
-  RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Sparkles, Search, ChevronDown, Filter
+  RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Sparkles, Search, ChevronDown, Filter,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import {
   KUOTA_JADWAL_INIT, STATUS_OPERASIONAL_LIST,
@@ -828,13 +829,21 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
   const [suratJalanModal, setSuratJalanModal] = useState(null);
   const [waModalPesanan, setWaModalPesanan] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterJadwal, setFilterJadwal] = useState('semua'); // 'semua' | 'hari_ini' | 'besok'
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [activeSection, setActiveSection] = useState('pesanan');
   const [kuotaList, setKuotaList] = useState(KUOTA_JADWAL_INIT);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const navigate = useNavigate();
   const session = getAdminSession();
+
+  // Reset pagination ke halaman 1 saat filter atau pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatus, filterJadwal]);
 
   // Memuat data kuota kalender real-time dari Supabase
   const loadLiveQuotas = async () => {
@@ -861,6 +870,10 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
   };
 
   const today = '2026-11-05';
+  const tomorrow = '2026-11-06';
+
+  const countHariIni = pesananList.filter(p => p.tglProduksi === today).length;
+  const countBesok = pesananList.filter(p => p.tglProduksi === tomorrow).length;
 
   const totalBulanIni = pesananList.length;
   const kuotaHariIni = kuotaList.find(k => k.tanggal === today);
@@ -892,12 +905,22 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
     }
   };
 
-  // Universal Real-time Multi-field Search & Status Filter
+  // Universal Real-time Multi-field Search, Status Filter & Filter Jadwal
   const filteredPesanan = pesananList.filter((p) => {
+    // 1. Filter cepat jadwal produksi
+    if (filterJadwal === 'hari_ini' && p.tglProduksi !== today) {
+      return false;
+    }
+    if (filterJadwal === 'besok' && p.tglProduksi !== tomorrow) {
+      return false;
+    }
+
+    // 2. Filter status operasional
     if (filterStatus && p.statusOperasional !== filterStatus) {
       return false;
     }
 
+    // 3. Real-time universal search
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
 
@@ -914,6 +937,13 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
 
     return idMatch || anakMatch || ortuMatch || waMatch || paketMatch || dagingMatch || jeroanMatch || tglMatch || bayarMatch;
   });
+
+  // Kalkulasi Pagination
+  const totalItems = filteredPesanan.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  const currentOrders = filteredPesanan.slice(startIndex, endIndex);
 
   const sortedKuotaList = [...kuotaList].sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
@@ -955,15 +985,6 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                 <span className="hidden sm:inline">Segarkan Data</span>
               </button>
 
-              <Link
-                to="/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-emerald-600/70 hover:bg-emerald-600 text-emerald-100 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 border border-emerald-500/50"
-              >
-                <ExternalLink size={14} />
-                <span className="hidden md:inline">Website Publik</span>
-              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -1054,7 +1075,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
               <div>
                 <h3 className="font-bold text-emerald-800 text-base">Manajemen Pesanan dan Antrean Dapur Harian</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Menampilkan {filteredPesanan.length} dari total {pesananList.length} pesanan
+                  Menampilkan {totalItems === 0 ? 0 : startIndex + 1}–{endIndex} dari total {totalItems} pesanan
                   {searchQuery.trim() && (
                     <span className="text-emerald-700 font-semibold ml-1">
                       (hasil pencarian: &ldquo;{searchQuery}&rdquo;)
@@ -1064,14 +1085,63 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
+                {/* Filter Cepat Jadwal Produksi */}
+                <div className="flex items-center gap-1 bg-gray-100/90 p-1 rounded-xl border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setFilterJadwal('semua')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      filterJadwal === 'semua'
+                        ? 'bg-white text-emerald-800 shadow-2xs'
+                        : 'text-gray-600 hover:text-emerald-800'
+                    }`}
+                  >
+                    Semua
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterJadwal('hari_ini')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      filterJadwal === 'hari_ini'
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'text-gray-600 hover:text-emerald-800'
+                    }`}
+                    title={`Lihat pesanan yang dijadwalkan hari ini (${today})`}
+                  >
+                    <span>Hari Ini</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      filterJadwal === 'hari_ini' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {countHariIni}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterJadwal('besok')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      filterJadwal === 'besok'
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'text-gray-600 hover:text-emerald-800'
+                    }`}
+                    title={`Lihat pesanan yang dijadwalkan besok (${tomorrow})`}
+                  >
+                    <span>Besok</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      filterJadwal === 'besok' ? 'bg-emerald-700 text-white' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {countBesok}
+                    </span>
+                  </button>
+                </div>
+
                 {/* Real-time Universal Multi-Field Search Input */}
-                <div className="relative min-w-[240px] sm:min-w-[290px]">
+                <div className="relative min-w-[210px] sm:min-w-[250px]">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Cari anak, ortu, invoice, WA, menu..."
+                    placeholder="Cari anak, invoice, menu..."
                     className="w-full pl-9 pr-8 py-2 bg-gray-50 hover:bg-white focus:bg-white border-2 border-gray-200 rounded-xl text-xs sm:text-sm focus:border-emerald-500 focus:outline-none transition-all placeholder:text-gray-400"
                   />
                   {searchQuery && (
@@ -1092,10 +1162,10 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                   onChange={setFilterStatus}
                 />
 
-                {(searchQuery || filterStatus) && (
+                {(searchQuery || filterStatus || filterJadwal !== 'semua') && (
                   <button
                     type="button"
-                    onClick={() => { setSearchQuery(''); setFilterStatus(''); }}
+                    onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterJadwal('semua'); }}
                     className="text-xs text-red-600 hover:text-red-700 font-semibold px-2 py-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                     title="Reset semua filter dan pencarian"
                   >
@@ -1114,7 +1184,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredPesanan.length === 0 ? (
+                  {currentOrders.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                         <Search size={32} className="mx-auto mb-2 text-gray-300" />
@@ -1122,12 +1192,14 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                         <p className="text-xs text-gray-400 mt-1">
                           {searchQuery
                             ? `Tidak ditemukan pesanan dengan kata kunci "${searchQuery}".`
-                            : 'Belum ada pesanan pada status ini.'}
+                            : filterJadwal !== 'semua'
+                            ? `Tidak ada pesanan untuk jadwal ${filterJadwal === 'hari_ini' ? 'Hari Ini' : 'Besok'}.`
+                            : 'Belum ada pesanan pada filter ini.'}
                         </p>
-                        {(searchQuery || filterStatus) && (
+                        {(searchQuery || filterStatus || filterJadwal !== 'semua') && (
                           <button
                             type="button"
-                            onClick={() => { setSearchQuery(''); setFilterStatus(''); }}
+                            onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterJadwal('semua'); }}
                             className="mt-3 inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer"
                           >
                             Tampilkan Semua Pesanan
@@ -1136,7 +1208,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                       </td>
                     </tr>
                   ) : (
-                    filteredPesanan.map((p) => {
+                    currentOrders.map((p) => {
                     const paket = getPaketById(p.paketId);
                     const nasiBox = getNasiBoxById(p.nasiBoxId);
                     const daging = getMenuDagingById(p.menuDaging);
@@ -1237,6 +1309,54 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                 </tbody>
               </table>
             </div>
+
+            {/* Kontrol Pagination & Status Jumlah Pesanan */}
+            {totalItems > 0 && (
+              <div className="px-6 py-3.5 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+                <p className="text-xs text-gray-500 font-medium">
+                  Menampilkan <strong className="text-emerald-900">{startIndex + 1}</strong> &ndash; <strong className="text-emerald-900">{endIndex}</strong> dari <strong className="text-emerald-900">{totalItems}</strong> pesanan
+                </p>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-700 transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft size={14} /> Sebelumnya
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setCurrentPage(num)}
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            currentPage === num
+                              ? 'bg-emerald-600 text-white shadow-2xs'
+                              : 'border border-gray-200 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-700 transition-colors cursor-pointer"
+                    >
+                      Berikutnya <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
