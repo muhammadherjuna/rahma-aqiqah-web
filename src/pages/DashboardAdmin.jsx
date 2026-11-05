@@ -117,7 +117,7 @@ function StatusFilterDropdown({ value, onChange }) {
   );
 }
 
-function TableRowStatusDropdown({ value, onChange }) {
+function TableRowStatusDropdown({ value, onChange, isOwner = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -140,6 +140,24 @@ function TableRowStatusDropdown({ value, onChange }) {
     'Selesai': 'bg-emerald-500',
   };
 
+  // Jika pesanan belum diverifikasi pembayaran oleh Pemilik, tim dapur belum bisa memprosesnya
+  if (!isOwner && value === 'Menunggu Verifikasi') {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border bg-amber-50 text-amber-800 border-amber-200 cursor-not-allowed shadow-2xs"
+        title="Menunggu verifikasi pembayaran oleh Pemilik sebelum masuk proses dapur"
+      >
+        <Clock size={12} className="text-amber-600 shrink-0" />
+        <span>Menunggu Verifikasi Pemilik</span>
+      </span>
+    );
+  }
+
+  // Opsi status: Tim Dapur fokus pada siklus produksi (tidak dapat reset kembali ke Menunggu Verifikasi)
+  const availableStatuses = isOwner
+    ? STATUS_OPERASIONAL_LIST
+    : STATUS_OPERASIONAL_LIST.filter(s => s !== 'Menunggu Verifikasi');
+
   return (
     <div className="relative inline-block" ref={dropdownRef}>
       <button
@@ -156,10 +174,10 @@ function TableRowStatusDropdown({ value, onChange }) {
       {isOpen && (
         <div className="absolute left-0 mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-50 animate-fadeIn overflow-hidden">
           <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/50">
-            Perbarui Status
+            {isOwner ? 'Status Operasional' : 'Update Status Dapur'}
           </div>
           <div className="p-1 space-y-0.5">
-            {STATUS_OPERASIONAL_LIST.map((s) => {
+            {availableStatuses.map((s) => {
               const isSelected = s === value;
               return (
                 <button
@@ -676,11 +694,15 @@ function PesananDetailModal({ pesanan, onClose, onPaymentChange, isOwner = false
             ['Jadwal Produksi', `${formatTanggalIndonesia(pesanan.tglProduksi, true)}`],
             ['Sesi Pengiriman', pesanan.sesi === 'pagi' ? 'Pagi (08.00 - 11.00 WIB)' : 'Sore (13.00 - 16.00 WIB)'],
             ['WhatsApp Pemesan', pesanan.noWa || '-'],
-            ['Total Tagihan', formatRupiah(pesanan.totalHarga)],
-            ...(isDP ? [
-              ['DP 50% Yang Diterima', formatRupiah(dp50)],
-              ['Sisa Tagihan Pelunasan', formatRupiah(total - dp50)],
-            ] : []),
+            ...(isOwner ? [
+              ['Total Tagihan', formatRupiah(pesanan.totalHarga)],
+              ...(isDP ? [
+                ['DP 50% Yang Diterima', formatRupiah(dp50)],
+                ['Sisa Tagihan Pelunasan', formatRupiah(total - dp50)],
+              ] : []),
+            ] : [
+              ['Status Finansial', isDP ? 'DP 50% Terverifikasi (Sisa COD saat kirim)' : 'Lunas 100% Terverifikasi'],
+            ]),
           ].map(([k, v]) => (
             <div key={k} className="flex justify-between gap-2 border-b border-gray-100 pb-2">
               <span className="text-gray-500 text-xs">{k}</span>
@@ -704,7 +726,7 @@ function PesananDetailModal({ pesanan, onClose, onPaymentChange, isOwner = false
   );
 }
 
-function WhatsAppAdminModal({ pesanan, onClose }) {
+function WhatsAppAdminModal({ pesanan, onClose, isOwner = false }) {
   if (!pesanan) return null;
   const paket = getPaketById(pesanan.paketId);
   const daging = getMenuDagingById(pesanan.menuDaging);
@@ -712,10 +734,11 @@ function WhatsAppAdminModal({ pesanan, onClose }) {
 
   const phone = (pesanan.noWa || '').replace(/^0/, '62').replace(/[^0-9]/g, '');
 
-  const templates = [
+  const allTemplates = [
     {
       id: 'terima_bayar',
       label: 'Konfirmasi Bayar & Jadwal',
+      ownerOnly: true,
       text: `Assalamualaikum Warahmatullahi Wabarakatuh Bpk/Ibu ${pesanan.namaOrtu},\n\nAlhamdulillah, pembayaran untuk pemesanan aqiqah ananda *${pesanan.namaAnak}* (${pesanan.id}) sebesar *${formatRupiah(pesanan.totalHarga)}* (${pesanan.statusPembayaran}) telah kami terima dan kami jadwalkan untuk produksi tanggal *${pesanan.tglProduksi}* (Sesi ${pesanan.sesi === 'pagi' ? 'Pagi 08.00-11.00 WIB' : 'Sore 13.00-16.00 WIB'}).\n\nTerima kasih atas kepercayaan Bpk/Ibu kepada Rahma Aqiqah Kebumen.`,
     },
     {
@@ -741,9 +764,14 @@ function WhatsAppAdminModal({ pesanan, onClose }) {
     {
       id: 'pelunasan',
       label: 'Konfirmasi Pelunasan 100%',
+      ownerOnly: true,
       text: `Assalamualaikum Warahmatullahi Wabarakatuh Bpk/Ibu ${pesanan.namaOrtu},\n\nAlhamdulillah, sisa pelunasan pembayaran aqiqah ananda *${pesanan.namaAnak}* (${pesanan.id}) telah kami terima dengan status *LUNAS 100%*. Terima kasih banyak atas kelancaran transaksinya.\n\nJazakumullah khairan katsiran.`,
     },
   ];
+
+  const templates = isOwner
+    ? allTemplates
+    : allTemplates.filter(t => !t.ownerOnly);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(templates[0].id);
   const [customText, setCustomText] = useState(templates[0].text);
@@ -1109,7 +1137,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         <SuratJalanModal pesanan={suratJalanModal} onClose={() => setSuratJalanModal(null)} />
       )}
       {waModalPesanan && (
-        <WhatsAppAdminModal pesanan={waModalPesanan} onClose={() => setWaModalPesanan(null)} />
+        <WhatsAppAdminModal pesanan={waModalPesanan} onClose={() => setWaModalPesanan(null)} isOwner={isOwner} />
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -1307,11 +1335,22 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                             <p className="text-gray-600">Daging: <strong>{daging?.nama}</strong></p>
                             <p className="text-gray-600">Jeroan: <strong>{jeroan?.nama}</strong></p>
                             {p.nasiBoxId !== 'none' && nasiBox ? (
-                              <p className="text-amber-700">{p.jumlahBox} Box {formatRupiah(nasiBox.harga)}/box</p>
+                              <p className="text-amber-700">
+                                {isOwner
+                                  ? `${p.jumlahBox} Box ${formatRupiah(nasiBox.harga)}/box`
+                                  : `${p.jumlahBox} Box (${nasiBox.nama})`}
+                              </p>
                             ) : (
                               <p className="text-gray-400">Tanpa Nasi Box</p>
                             )}
-                            <p className="font-bold text-emerald-700 pt-0.5">{formatRupiah(p.totalHarga)}</p>
+                            {isOwner ? (
+                              <p className="font-bold text-emerald-700 pt-0.5">{formatRupiah(p.totalHarga)}</p>
+                            ) : (
+                              <p className="font-semibold text-emerald-800 text-[11px] pt-0.5 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                                Target Dapur
+                              </p>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
@@ -1348,6 +1387,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                           <TableRowStatusDropdown
                             value={p.statusOperasional}
                             onChange={newStatus => handleStatusChange(p.id, newStatus)}
+                            isOwner={isOwner}
                           />
                         </td>
                         <td className="px-4 py-4">
