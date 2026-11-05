@@ -457,18 +457,18 @@ function PesananDetailModal({ pesanan, onClose, onPaymentChange }) {
               </p>
             )}
           </div>
-          {onPaymentChange && (
+          {isDP && onPaymentChange ? (
             <button
               type="button"
-              onClick={() => onPaymentChange(pesanan.id, isDP ? 'Lunas 100%' : 'DP 50% Lunas')}
-              className={`text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                isDP
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-white hover:bg-amber-50 text-amber-700 border border-amber-300'
-              }`}
+              onClick={() => onPaymentChange(pesanan.id, 'Lunas 100%')}
+              className="text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {isDP ? <><CheckCircle size={14} /> Tandai Lunas 100%</> : 'Ubah ke DP 50%'}
+              <CheckCircle size={14} /> Tandai Lunas 100%
             </button>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+              <CheckCircle size={13} className="text-emerald-600" /> Terverifikasi
+            </span>
           )}
         </div>
 
@@ -932,10 +932,11 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                         </td>
                         <td className="px-4 py-4">
                           <div className="space-y-1.5 min-w-[125px]">
-                            <span className={`inline-block px-2.5 py-0.5 rounded-lg border text-xs font-semibold ${BAYAR_COLORS[p.statusPembayaran] || 'bg-gray-100 text-gray-700'}`}>
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${BAYAR_COLORS[p.statusPembayaran] || 'bg-gray-100 text-gray-700'}`}>
+                              {p.statusPembayaran === 'Lunas 100%' && <CheckCircle size={12} className="text-emerald-600 shrink-0" />}
                               {p.statusPembayaran}
                             </span>
-                            {p.statusPembayaran === 'DP 50% Lunas' ? (
+                            {p.statusPembayaran === 'DP 50% Lunas' && (
                               <button
                                 type="button"
                                 onClick={() => handlePaymentChange(p.id, 'Lunas 100%')}
@@ -943,15 +944,6 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                                 title="Klik jika sisa pelunasan telah diterima"
                               >
                                 <CheckCircle size={11} /> Tandai Lunas 100%
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handlePaymentChange(p.id, 'DP 50% Lunas')}
-                                className="text-[10px] text-gray-400 hover:text-amber-700 block underline cursor-pointer"
-                                title="Kembalikan status ke DP 50%"
-                              >
-                                Ubah ke DP 50%
                               </button>
                             )}
                           </div>
