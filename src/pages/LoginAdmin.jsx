@@ -381,9 +381,18 @@ export default function LoginAdmin() {
                   }}
                   className="w-full text-left text-xs bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 p-2 rounded-lg transition-colors flex items-center justify-between"
                 >
-                  <div>
-                    <span className="font-semibold text-slate-800">{acc.nama}</span>
-                    <span className="text-slate-500 text-[10px] ml-1">({acc.peran})</span>
+                  <div className="pr-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-semibold text-slate-800">{acc.nama}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                        acc.role === 'owner' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-blue-50 text-blue-800 border-blue-200'
+                      }`}>
+                        {acc.peran}
+                      </span>
+                    </div>
+                    {acc.deskripsi && (
+                      <p className="text-[10px] text-slate-500 mt-0.5">{acc.deskripsi}</p>
+                    )}
                   </div>
                   <span className="font-mono text-[10px] text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
                     Gunakan

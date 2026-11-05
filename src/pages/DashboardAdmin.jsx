@@ -584,7 +584,7 @@ function SuratJalanModal({ pesanan, onClose }) {
   );
 }
 
-function PesananDetailModal({ pesanan, onClose, onPaymentChange }) {
+function PesananDetailModal({ pesanan, onClose, onPaymentChange, isOwner = false }) {
   const paket = getPaketById(pesanan.paketId);
   const nasiBox = getNasiBoxById(pesanan.nasiBoxId);
   const total = pesanan.totalHarga || 0;
@@ -602,7 +602,7 @@ function PesananDetailModal({ pesanan, onClose, onPaymentChange }) {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
         </div>
 
-        {/* Status Pembayaran Card with 1-click update */}
+        {/* Status Pembayaran Card with RBAC check */}
         <div className={`p-3.5 rounded-2xl border mb-4 flex items-center justify-between gap-3 ${
           isDP ? 'bg-amber-50/80 border-amber-200' : 'bg-emerald-50/80 border-emerald-200'
         }`}>
@@ -617,17 +617,23 @@ function PesananDetailModal({ pesanan, onClose, onPaymentChange }) {
               </p>
             )}
           </div>
-          {isDP && onPaymentChange ? (
-            <button
-              type="button"
-              onClick={() => onPaymentChange(pesanan.id, 'Lunas 100%')}
-              className="text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <CheckCircle size={14} /> Tandai Lunas 100%
-            </button>
+          {isOwner ? (
+            isDP && onPaymentChange ? (
+              <button
+                type="button"
+                onClick={() => onPaymentChange(pesanan.id, 'Lunas 100%')}
+                className="text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <CheckCircle size={14} /> Tandai Lunas 100%
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+                <CheckCircle size={13} className="text-emerald-600" /> Terverifikasi Pemilik
+              </span>
+            )
           ) : (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
-              <CheckCircle size={13} className="text-emerald-600" /> Terverifikasi
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-600 bg-white px-2.5 py-1 rounded-lg border border-gray-200">
+              {isDP ? 'Menunggu Pelunasan' : 'Terverifikasi (Lunas)'}
             </span>
           )}
         </div>
@@ -839,6 +845,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
 
   const navigate = useNavigate();
   const session = getAdminSession();
+  const isOwner = session?.role === 'owner' || session?.username === 'abdul.ghofar';
 
   // Reset pagination ke halaman 1 saat filter atau pencarian berubah
   useEffect(() => {
@@ -879,6 +886,89 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
   const kuotaHariIni = kuotaList.find(k => k.tanggal === today);
   const menungguVerifikasi = pesananList.filter(p => p.statusOperasional === 'Menunggu Verifikasi').length;
   const totalPendapatan = pesananList.reduce((sum, p) => sum + p.totalHarga, 0);
+
+  // Metrik Khusus Operasional Dapur
+  const antreanMasak = pesananList.filter(p => ['Dijadwalkan', 'Proses Penyembelihan', 'Masak Dapur'].includes(p.statusOperasional)).length;
+  const siapKirimSelesai = pesananList.filter(p => ['Dikirim', 'Selesai'].includes(p.statusOperasional)).length;
+
+  // Kartu Metrik Terpisah berdasarkan Peran (RBAC)
+  const displayCards = isOwner
+    ? [
+        {
+          label: 'Total Pesanan Bulan Ini',
+          value: totalBulanIni,
+          Icon: Package,
+          color: 'bg-emerald-50 border-emerald-200',
+          iconColor: 'text-emerald-600',
+          iconBg: 'bg-emerald-100',
+          sub: 'pesanan aktif'
+        },
+        {
+          label: 'Kuota Dapur Hari Ini',
+          value: `${kuotaHariIni?.terpakai || 0}/${kuotaHariIni?.maks || 5}`,
+          Icon: Calendar,
+          color: 'bg-blue-50 border-blue-200',
+          iconColor: 'text-blue-600',
+          iconBg: 'bg-blue-100',
+          sub: `${kuotaHariIni ? kuotaHariIni.maks - kuotaHariIni.terpakai : 5} slot tersisa`
+        },
+        {
+          label: 'Menunggu Verifikasi',
+          value: menungguVerifikasi,
+          Icon: Clock,
+          color: 'bg-amber-50 border-amber-200',
+          iconColor: 'text-amber-600',
+          iconBg: 'bg-amber-100',
+          sub: 'perlu konfirmasi'
+        },
+        {
+          label: 'Pendapatan (Estimasi)',
+          value: formatRupiah(totalPendapatan),
+          Icon: TrendingUp,
+          color: 'bg-purple-50 border-purple-200',
+          iconColor: 'text-purple-600',
+          iconBg: 'bg-purple-100',
+          sub: 'total omzet pesanan'
+        },
+      ]
+    : [
+        {
+          label: 'Total Pesanan Tercatat',
+          value: totalBulanIni,
+          Icon: Package,
+          color: 'bg-emerald-50 border-emerald-200',
+          iconColor: 'text-emerald-600',
+          iconBg: 'bg-emerald-100',
+          sub: 'pesanan dalam sistem'
+        },
+        {
+          label: 'Kapasitas Dapur Hari Ini',
+          value: `${kuotaHariIni?.terpakai || 0}/${kuotaHariIni?.maks || 5}`,
+          Icon: Calendar,
+          color: 'bg-blue-50 border-blue-200',
+          iconColor: 'text-blue-600',
+          iconBg: 'bg-blue-100',
+          sub: `${kuotaHariIni ? kuotaHariIni.maks - kuotaHariIni.terpakai : 5} slot kapasitas produksi`
+        },
+        {
+          label: 'Antrean Masak & Sembelih',
+          value: antreanMasak,
+          Icon: ChefHat,
+          color: 'bg-amber-50 border-amber-200',
+          iconColor: 'text-amber-600',
+          iconBg: 'bg-amber-100',
+          sub: 'sedang/siap diproses'
+        },
+        {
+          label: 'Siap Kirim / Selesai',
+          value: siapKirimSelesai,
+          Icon: Truck,
+          color: 'bg-cyan-50 border-cyan-200',
+          iconColor: 'text-cyan-600',
+          iconBg: 'bg-cyan-100',
+          sub: 'pengantaran & dokumentasi'
+        },
+      ];
 
   // Perbarui status operasional langsung ke Supabase
   const handleStatusChange = async (id, newStatus) => {
@@ -953,15 +1043,26 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="bg-emerald-600/80 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-emerald-500">
-                Sesi Terverifikasi
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
+                isOwner
+                  ? 'bg-amber-400/20 text-amber-300 border-amber-400/50'
+                  : 'bg-blue-400/20 text-blue-200 border-blue-400/50'
+              }`}>
+                {isOwner ? 'Pemilik & Pengelola Utama' : 'Tim Operasional Dapur'}
               </span>
               <span className="text-xs text-emerald-200">
-                Masuk sebagai: <strong>{session?.nama || 'Bapak Abdul Ghofar'}</strong> ({session?.peran || 'Pengelola Utama'})
+                Masuk sebagai: <strong>{session?.nama || (isOwner ? 'Bapak Abdul Ghofar' : 'Tim Operasional Dapur')}</strong>
               </span>
             </div>
-            <h2 className="text-xl font-bold mt-1">Dashboard Operasional Dapur & Syariat</h2>
-            <p className="text-emerald-200 text-xs mt-0.5">Rahma Aqiqah Kebumen &middot; {today}</p>
+            <h2 className="text-xl font-bold mt-1">
+              {isOwner ? 'Dashboard Manajemen Eksekutif & Syariat' : 'Dashboard Operasional Dapur & Pengiriman'}
+            </h2>
+            <p className="text-emerald-200 text-xs mt-0.5">
+              Rahma Aqiqah Kebumen &middot; {today} &middot;{' '}
+              {isOwner
+                ? 'Akses Penuh: Keuangan, Verifikasi Pembayaran & Kuota'
+                : 'Mode Dapur: Antrean Masakan, Cetak Tiket & Dokumentasi Syariat'}
+            </p>
           </div>
 
           <div className="flex items-center gap-4">
@@ -979,7 +1080,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                 onClick={handleRefreshAll}
                 disabled={isRefreshing || isLoadingOrders}
                 title="Segarkan data dari Supabase"
-                className="bg-emerald-600/70 hover:bg-emerald-600 text-emerald-100 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 border border-emerald-500/50 disabled:opacity-50"
+                className="bg-emerald-600/70 hover:bg-emerald-600 text-emerald-100 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 border border-emerald-500/50 disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
                 <span className="hidden sm:inline">Segarkan Data</span>
@@ -988,7 +1089,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
               <button
                 type="button"
                 onClick={handleLogout}
-                className="bg-red-500/20 hover:bg-red-600 text-red-200 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-red-400/40 shadow-sm"
+                className="bg-red-500/20 hover:bg-red-600 text-red-200 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-red-400/40 shadow-sm cursor-pointer"
               >
                 <LogOut size={14} />
                 <span>Keluar</span>
@@ -1002,7 +1103,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         <UploadSyariatModal pesanan={uploadModal} onClose={() => setUploadModal(null)} onSave={handleSyariatSave} />
       )}
       {detailModal && (
-        <PesananDetailModal pesanan={detailModal} onClose={() => setDetailModal(null)} onPaymentChange={handlePaymentChange} />
+        <PesananDetailModal pesanan={detailModal} onClose={() => setDetailModal(null)} onPaymentChange={handlePaymentChange} isOwner={isOwner} />
       )}
       {suratJalanModal && (
         <SuratJalanModal pesanan={suratJalanModal} onClose={() => setSuratJalanModal(null)} />
@@ -1014,28 +1115,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Kartu Metrik */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            {
-              label: 'Total Pesanan Bulan Ini', value: totalBulanIni, Icon: Package,
-              color: 'bg-emerald-50 border-emerald-200', iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100',
-              sub: 'pesanan aktif'
-            },
-            {
-              label: 'Kuota Dapur Hari Ini', value: `${kuotaHariIni?.terpakai || 0}/${kuotaHariIni?.maks || 5}`,
-              Icon: Calendar, color: 'bg-blue-50 border-blue-200', iconColor: 'text-blue-600', iconBg: 'bg-blue-100',
-              sub: `${kuotaHariIni ? kuotaHariIni.maks - kuotaHariIni.terpakai : 5} slot tersisa`
-            },
-            {
-              label: 'Menunggu Verifikasi', value: menungguVerifikasi, Icon: Clock,
-              color: 'bg-amber-50 border-amber-200', iconColor: 'text-amber-600', iconBg: 'bg-amber-100',
-              sub: 'perlu konfirmasi'
-            },
-            {
-              label: 'Pendapatan (Estimasi)', value: formatRupiah(totalPendapatan), Icon: TrendingUp,
-              color: 'bg-purple-50 border-purple-200', iconColor: 'text-purple-600', iconBg: 'bg-purple-100',
-              sub: 'total semua pesanan'
-            },
-          ].map(({ label, value, Icon, color, iconColor, iconBg, sub }) => (
+          {displayCards.map(({ label, value, Icon, color, iconColor, iconBg, sub }) => (
             <div key={label} className={`${color} border rounded-2xl p-5 shadow-sm`}>
               <div className="flex items-start justify-between">
                 <div>
@@ -1054,11 +1134,11 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         {/* Tab Admin */}
         <div className="flex gap-2 mb-6">
           {[
-            { id: 'pesanan', label: 'Manajemen Pesanan dan Dapur' },
-            { id: 'kuota', label: 'Kontrol Kuota Kalender Dapur' },
+            { id: 'pesanan', label: isOwner ? 'Manajemen Pesanan dan Dapur' : 'Antrean Masak dan Pengiriman' },
+            { id: 'kuota', label: isOwner ? 'Kontrol Kuota Kalender Dapur' : 'Kalender Kapasitas Dapur' },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveSection(tab.id)}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
+              className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
                 activeSection === tab.id
                   ? 'bg-emerald-600 text-white shadow-md'
                   : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-300'
@@ -1249,7 +1329,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                               {p.statusPembayaran === 'Lunas 100%' && <CheckCircle size={12} className="text-emerald-600 shrink-0" />}
                               {p.statusPembayaran}
                             </span>
-                            {p.statusPembayaran === 'DP 50% Lunas' && (
+                            {isOwner && p.statusPembayaran === 'DP 50% Lunas' && (
                               <button
                                 type="button"
                                 onClick={() => handlePaymentChange(p.id, 'Lunas 100%')}
@@ -1258,6 +1338,9 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                               >
                                 <CheckCircle size={11} /> Tandai Lunas 100%
                               </button>
+                            )}
+                            {!isOwner && p.statusPembayaran === 'DP 50% Lunas' && (
+                              <p className="text-[10px] text-amber-700 font-medium">Sisa tagihan saat kirim</p>
                             )}
                           </div>
                         </td>
@@ -1363,9 +1446,22 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         {/* Tabel Kuota Kalender */}
         {activeSection === 'kuota' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-emerald-800">Kontrol Kuota Kalender Dapur</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Kapasitas maksimal dapur: 5 Ekor per Hari (Anti-Overbooking Aktif)</p>
+            <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-emerald-800">
+                  {isOwner ? 'Kontrol Kuota Kalender Dapur' : 'Kalender Kapasitas Produksi Dapur'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Kapasitas maksimal dapur: 5 Ekor per Hari (Sistem Proteksi Anti-Overbooking Aktif)
+                </p>
+              </div>
+              <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${
+                isOwner
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-blue-50 text-blue-800 border-blue-200'
+              }`}>
+                {isOwner ? 'Wewenang Penuh Pemilik' : 'Tampilan Informatif Kesiapan Dapur'}
+              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

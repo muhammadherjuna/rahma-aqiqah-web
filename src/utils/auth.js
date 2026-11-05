@@ -8,14 +8,18 @@ export const ADMIN_CREDENTIALS = [
     username: 'abdul.ghofar',
     password: 'aqiqahsyariat2026',
     nama: 'Bapak Abdul Ghofar',
-    peran: 'Pengelola Utama',
+    peran: 'Pemilik & Pengelola Utama',
+    role: 'owner',
+    deskripsi: 'Akses penuh: Keuangan, Omzet, Verifikasi Pembayaran & Kuota',
     noWa: '081578733874',
   },
   {
     username: 'admin',
     password: 'admin123',
     nama: 'Tim Operasional Dapur',
-    peran: 'Staf Administrasi',
+    peran: 'Staf Operasional Dapur',
+    role: 'kitchen',
+    deskripsi: 'Akses operasional: Antrean Masak, Tiket Dapur & Dokumentasi Syariat',
     noWa: '081578733874',
   },
 ];
@@ -44,6 +48,7 @@ export function setAdminSession(user) {
     username: user.username,
     nama: user.nama,
     peran: user.peran,
+    role: user.role || (user.username === 'abdul.ghofar' ? 'owner' : 'kitchen'),
     noWa: user.noWa,
     loginAt: new Date().toISOString(),
     expiresAt: Date.now() + 1000 * 60 * 60 * 4, // Aktif selama 4 jam
