@@ -2,6 +2,7 @@
 // Layanan Autentikasi Pengelola Rahma Aqiqah Kebumen
 
 const AUTH_STORAGE_KEY = 'rahma_aqiqah_admin_session';
+const CUSTOM_PASSWORDS_KEY = 'rahma_custom_passwords';
 
 export const ADMIN_CREDENTIALS = [
   {
@@ -23,6 +24,48 @@ export const ADMIN_CREDENTIALS = [
     noWa: '081578733874',
   },
 ];
+
+function getCustomPasswords() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PASSWORDS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function getAdminCredentials() {
+  const custom = getCustomPasswords();
+  return ADMIN_CREDENTIALS.map((acc) => ({
+    ...acc,
+    password: custom[acc.username] || acc.password,
+  }));
+}
+
+export function updateAdminPassword(username, oldPassword, newPassword) {
+  const credentials = getAdminCredentials();
+  const user = credentials.find(
+    (acc) => acc.username.toLowerCase() === username.trim().toLowerCase()
+  );
+
+  if (!user) {
+    return { success: false, error: 'Pengguna tidak ditemukan.' };
+  }
+
+  if (user.password !== oldPassword) {
+    return { success: false, error: 'Kata sandi saat ini (lama) tidak sesuai.' };
+  }
+
+  if (!newPassword || newPassword.trim().length < 6) {
+    return { success: false, error: 'Kata sandi baru harus minimal 6 karakter.' };
+  }
+
+  const custom = getCustomPasswords();
+  custom[user.username] = newPassword.trim();
+  localStorage.setItem(CUSTOM_PASSWORDS_KEY, JSON.stringify(custom));
+
+  return { success: true };
+}
 
 export function getAdminSession() {
   try {
@@ -62,7 +105,8 @@ export function clearAdminSession() {
 }
 
 export function verifyCredentials(username, password) {
-  const found = ADMIN_CREDENTIALS.find(
+  const list = getAdminCredentials();
+  const found = list.find(
     (acc) =>
       acc.username.toLowerCase() === username.trim().toLowerCase() &&
       acc.password === password

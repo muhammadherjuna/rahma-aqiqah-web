@@ -3,16 +3,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Users, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock,
-  Truck, ChefHat, Scissors, Eye, X, FileText, Camera, Award,
+  Truck, ChefHat, Scissors, Eye, EyeOff, X, FileText, Camera, Award,
   Package, Shield, Upload, Sun, Sunset, LogOut, ExternalLink, UserCheck,
   RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Sparkles, Search, ChevronDown, Filter,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, KeyRound, Lock
 } from 'lucide-react';
 import {
   KUOTA_JADWAL_INIT, STATUS_OPERASIONAL_LIST,
   formatRupiah, formatTanggalIndonesia, getPaketById, getMenuDagingById, getMenuJeroanById, getNasiBoxById
 } from '../data/mockData';
-import { getAdminSession, clearAdminSession } from '../utils/auth';
+import { getAdminSession, clearAdminSession, updateAdminPassword } from '../utils/auth';
 import { getDailyQuotas, updateOrderStatus, updatePaymentStatus, upsertSyariatDoc, uploadFileToStorage } from '../lib/supabaseClient';
 import { compressImageToWebP } from '../utils/imageCompressor';
 import { parseVideoUrl } from '../utils/videoHelper';
@@ -857,11 +857,178 @@ function WhatsAppAdminModal({ pesanan, onClose, isOwner = false }) {
   );
 }
 
+function ChangePasswordModal({ session, onClose }) {
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (newPassword.length < 6) {
+      setErrorMsg('Kata sandi baru harus minimal 6 karakter.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMsg('Konfirmasi kata sandi baru tidak cocok.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setTimeout(() => {
+      const res = updateAdminPassword(session?.username, oldPassword, newPassword);
+      if (res.success) {
+        setSuccessMsg('Kata sandi berhasil diperbarui! Silakan gunakan sandi baru ini saat masuk berikutnya.');
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        setErrorMsg(res.error || 'Gagal memperbarui kata sandi.');
+      }
+      setIsSubmitting(false);
+    }, 300);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl my-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center">
+              <KeyRound size={18} />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800 text-base">Ganti Kata Sandi</h3>
+              <p className="text-xs text-gray-500">{session?.nama} ({session?.peran})</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+            <X size={20} />
+          </button>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs flex items-start gap-2">
+            <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-start gap-2">
+            <CheckCircle size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              Kata Sandi Saat Ini (Lama)
+            </label>
+            <div className="relative">
+              <input
+                type={showOld ? 'text' : 'password'}
+                required
+                value={oldPassword}
+                onChange={e => setOldPassword(e.target.value)}
+                placeholder="Masukkan kata sandi lama"
+                className="w-full pl-3 pr-9 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowOld(!showOld)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                {showOld ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              Kata Sandi Baru
+            </label>
+            <div className="relative">
+              <input
+                type={showNew ? 'text' : 'password'}
+                required
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                className="w-full pl-3 pr-9 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              Ulangi Kata Sandi Baru
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                required
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Ketik ulang kata sandi baru"
+                className="w-full pl-3 pr-9 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm(!showConfirm)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                {showConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Lock size={13} />
+              <span>{isSubmitting ? 'Menyimpan...' : 'Perbarui Sandi'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardAdmin({ pesananList, setPesananList, onRefresh, isLoadingOrders }) {
   const [uploadModal, setUploadModal] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
   const [suratJalanModal, setSuratJalanModal] = useState(null);
   const [waModalPesanan, setWaModalPesanan] = useState(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterJadwal, setFilterJadwal] = useState('semua'); // 'semua' | 'hari_ini' | 'besok'
   const [searchQuery, setSearchQuery] = useState('');
@@ -1123,6 +1290,16 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
 
               <button
                 type="button"
+                onClick={() => setIsChangePasswordOpen(true)}
+                title="Ganti kata sandi akun ini"
+                className="bg-emerald-600/70 hover:bg-emerald-600 text-emerald-100 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 border border-emerald-500/50 cursor-pointer"
+              >
+                <KeyRound size={14} />
+                <span className="hidden sm:inline">Ganti Sandi</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleLogout}
                 className="bg-red-500/20 hover:bg-red-600 text-red-200 hover:text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 border border-red-400/40 shadow-sm cursor-pointer"
               >
@@ -1134,6 +1311,9 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         </div>
       </div>
 
+      {isChangePasswordOpen && (
+        <ChangePasswordModal session={session} onClose={() => setIsChangePasswordOpen(false)} />
+      )}
       {uploadModal && (
         <UploadSyariatModal pesanan={uploadModal} onClose={() => setUploadModal(null)} onSave={handleSyariatSave} />
       )}
