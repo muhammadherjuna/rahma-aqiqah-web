@@ -1091,16 +1091,16 @@ export default function KalkulatorPesan({ onPesanBerhasil }) {
                     </label>
                     <div className="flex gap-2">
                       {[
-                        ['laki', 'Laki-laki (Dianjurkan 2 Ekor)'],
+                        ['laki', 'Laki-laki (2 Ekor)'],
                         ['perempuan', 'Perempuan (1 Ekor)'],
                       ].map(([val, lab]) => (
                         <button
                           type="button"
                           key={val}
                           onClick={() => handleJenisKelaminChange(val)}
-                          className={`flex-1 rounded-xl border-2 p-2.5 text-xs font-semibold transition-all ${
+                          className={`flex-1 rounded-xl border-2 py-2.5 px-2 text-xs font-semibold whitespace-nowrap transition-all text-center ${
                             jenisKelamin === val
-                              ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold'
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold shadow-xs'
                               : 'border-gray-200 text-gray-600 hover:border-emerald-200 bg-white'
                           }`}
                         >
