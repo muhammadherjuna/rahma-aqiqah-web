@@ -5,7 +5,7 @@ import {
   Users, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock,
   Truck, ChefHat, Scissors, Eye, X, FileText, Camera, Award,
   Package, Shield, Upload, Sun, Sunset, LogOut, ExternalLink, UserCheck,
-  RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Sparkles
+  RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Sparkles, Search
 } from 'lucide-react';
 import {
   KUOTA_JADWAL_INIT, STATUS_OPERASIONAL_LIST,
@@ -669,6 +669,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
   const [suratJalanModal, setSuratJalanModal] = useState(null);
   const [waModalPesanan, setWaModalPesanan] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeSection, setActiveSection] = useState('pesanan');
   const [kuotaList, setKuotaList] = useState(KUOTA_JADWAL_INIT);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -732,9 +733,28 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
     }
   };
 
-  const filteredPesanan = filterStatus
-    ? pesananList.filter(p => p.statusOperasional === filterStatus)
-    : pesananList;
+  // Universal Real-time Multi-field Search & Status Filter
+  const filteredPesanan = pesananList.filter((p) => {
+    if (filterStatus && p.statusOperasional !== filterStatus) {
+      return false;
+    }
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+
+    const idMatch = (p.id || '').toLowerCase().includes(q);
+    const anakMatch = (p.namaAnak || '').toLowerCase().includes(q);
+    const ortuMatch = (p.namaOrtu || '').toLowerCase().includes(q);
+    const cleanDigits = q.replace(/[^0-9]/g, '');
+    const waMatch = (p.noWa || '').toLowerCase().includes(q) || (cleanDigits && (p.noWa || '').replace(/[^0-9]/g, '').includes(cleanDigits));
+    const paketMatch = (`tipe ${p.paketId || ''}`).toLowerCase().includes(q);
+    const dagingMatch = (p.menuDaging || '').toLowerCase().includes(q);
+    const jeroanMatch = (p.menuJeroan || '').toLowerCase().includes(q);
+    const tglMatch = (p.tglProduksi || '').toLowerCase().includes(q);
+    const bayarMatch = (p.statusPembayaran || '').toLowerCase().includes(q);
+
+    return idMatch || anakMatch || ortuMatch || waMatch || paketMatch || dagingMatch || jeroanMatch || tglMatch || bayarMatch;
+  });
 
   const sortedKuotaList = [...kuotaList].sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
@@ -871,18 +891,62 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         {/* Tabel Pesanan */}
         {activeSection === 'pesanan' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-bold text-emerald-800">Manajemen Pesanan dan Antrean Dapur Harian</h3>
-              <div className="flex items-center gap-2">
+            <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-emerald-800 text-base">Manajemen Pesanan dan Antrean Dapur Harian</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Menampilkan {filteredPesanan.length} dari total {pesananList.length} pesanan
+                  {searchQuery.trim() && (
+                    <span className="text-emerald-700 font-semibold ml-1">
+                      (hasil pencarian: &ldquo;{searchQuery}&rdquo;)
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Real-time Universal Multi-Field Search Input */}
+                <div className="relative min-w-[240px] sm:min-w-[290px]">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Cari anak, ortu, invoice, WA, menu..."
+                    className="w-full pl-9 pr-8 py-2 bg-gray-50 hover:bg-white focus:bg-white border-2 border-gray-200 rounded-xl text-xs sm:text-sm focus:border-emerald-500 focus:outline-none transition-all placeholder:text-gray-400"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
+                      title="Bersihkan pencarian"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Status Operasional */}
                 <select
                   value={filterStatus}
                   onChange={e => setFilterStatus(e.target.value)}
-                  className="border-2 border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none bg-white"
+                  className="border-2 border-gray-200 rounded-xl px-3 py-2 text-xs sm:text-sm focus:border-emerald-500 focus:outline-none bg-white cursor-pointer"
                 >
                   <option value="">Semua Status</option>
                   {STATUS_OPERASIONAL_LIST.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <span className="text-sm text-gray-500">{filteredPesanan.length} pesanan</span>
+
+                {(searchQuery || filterStatus) && (
+                  <button
+                    type="button"
+                    onClick={() => { setSearchQuery(''); setFilterStatus(''); }}
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold px-2 py-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                    title="Reset semua filter dan pencarian"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -895,7 +959,29 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredPesanan.map((p) => {
+                  {filteredPesanan.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                        <Search size={32} className="mx-auto mb-2 text-gray-300" />
+                        <p className="font-semibold text-gray-600 text-sm">Tidak ada pesanan yang sesuai</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {searchQuery
+                            ? `Tidak ditemukan pesanan dengan kata kunci "${searchQuery}".`
+                            : 'Belum ada pesanan pada status ini.'}
+                        </p>
+                        {(searchQuery || filterStatus) && (
+                          <button
+                            type="button"
+                            onClick={() => { setSearchQuery(''); setFilterStatus(''); }}
+                            className="mt-3 inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                          >
+                            Tampilkan Semua Pesanan
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPesanan.map((p) => {
                     const paket = getPaketById(p.paketId);
                     const nasiBox = getNasiBoxById(p.nasiBoxId);
                     const daging = getMenuDagingById(p.menuDaging);
@@ -996,7 +1082,8 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>
