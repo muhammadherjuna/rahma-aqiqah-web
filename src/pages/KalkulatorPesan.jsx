@@ -68,7 +68,6 @@ export default function KalkulatorPesan({ onPesanBerhasil }) {
   const [pembayaran, setPembayaran] = useState('dp');
   const [buktiFile, setBuktiFile] = useState(null);
   const [buktiPreview, setBuktiPreview] = useState(null);
-  const [compressionInfo, setCompressionInfo] = useState(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submittedInvoice, setSubmittedInvoice] = useState('');
@@ -1116,21 +1115,37 @@ export default function KalkulatorPesan({ onPesanBerhasil }) {
                       Nama Orang Tua (Bin / Binti) *
                     </label>
                     <div className="flex gap-2">
-                      <select
-                        value={binBinti}
-                        onChange={e => setBinBinti(e.target.value)}
-                        className="border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none bg-white font-medium"
-                      >
-                        <option value="bin">bin</option>
-                        <option value="binti">binti</option>
-                      </select>
+                      <div className="flex p-1 bg-gray-100 border-2 border-gray-200 rounded-xl flex-shrink-0 items-center">
+                        <button
+                          type="button"
+                          onClick={() => setBinBinti('bin')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            binBinti === 'bin'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-gray-600 hover:text-emerald-800'
+                          }`}
+                        >
+                          bin
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBinBinti('binti')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            binBinti === 'binti'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-gray-600 hover:text-emerald-800'
+                          }`}
+                        >
+                          binti
+                        </button>
+                      </div>
                       <input
                         required
                         type="text"
                         value={namaOrtu}
                         onChange={e => setNamaOrtu(e.target.value)}
                         placeholder="Nama Ayah / Ibu Kandung"
-                        className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+                        className="flex-1 min-w-0 border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none bg-white"
                       />
                     </div>
                   </div>
@@ -1249,13 +1264,13 @@ export default function KalkulatorPesan({ onPesanBerhasil }) {
                       )}
                       <span className="text-xs sm:text-sm font-semibold text-gray-700 text-center">
                         {isCompressing
-                          ? 'Sedang mengompresi gambar ke WebP...'
+                          ? 'Sedang memproses file...'
                           : buktiFile
                           ? buktiFile.name
                           : 'Klik untuk upload struk transfer atau seret ke sini'}
                       </span>
                       <span className="text-[11px] text-gray-400 mt-0.5">
-                        Otomatis dikonversi ke format WebP ringan hemat kuota
+                        Format gambar JPG, PNG, atau dokumen PDF (maks. 10MB)
                       </span>
                       <input
                         type="file"
@@ -1270,41 +1285,24 @@ export default function KalkulatorPesan({ onPesanBerhasil }) {
                             const res = await compressImageToWebP(raw);
                             setBuktiFile(res.file);
                             setBuktiPreview(res.previewUrl);
-                            setCompressionInfo({
-                              original: res.originalFormatted,
-                              compressed: res.compressedFormatted,
-                              ratio: res.compressionRatio,
-                            });
                             setIsCompressing(false);
                           } else {
                             setBuktiFile(raw);
                             setBuktiPreview(null);
-                            setCompressionInfo(null);
                           }
                         }}
                       />
                     </label>
 
-                    {compressionInfo && (
-                      <div className="mt-2 p-2 rounded-xl bg-emerald-100/70 border border-emerald-300 text-xs text-emerald-800 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Sparkles size={14} className="text-emerald-600" />
-                          <span>
-                            Optimasi WebP: <strong>{compressionInfo.original}</strong> &rarr; <strong>{compressionInfo.compressed}</strong>
-                          </span>
-                        </div>
-                        <span className="bg-emerald-700 text-white font-bold text-[10px] px-2 py-0.5 rounded-full">
-                          Hemat {compressionInfo.ratio}%
-                        </span>
-                      </div>
-                    )}
-
                     {buktiPreview && (
-                      <div className="mt-2 flex items-center gap-3 p-2 border border-gray-200 rounded-xl bg-white">
-                        <img src={buktiPreview} alt="Bukti Transfer" className="w-12 h-12 object-cover rounded-lg border border-gray-100" />
-                        <div className="text-xs text-gray-500">
-                          <p className="font-semibold text-gray-700">{buktiFile?.name}</p>
-                          <p className="text-[11px] text-emerald-600">Siap diunggah ke Cloud Storage</p>
+                      <div className="mt-2.5 flex items-center gap-3 p-2.5 border border-emerald-200 rounded-xl bg-emerald-50/50">
+                        <img src={buktiPreview} alt="Bukti Transfer" className="w-12 h-12 object-cover rounded-lg border border-emerald-100" />
+                        <div className="text-xs">
+                          <p className="font-semibold text-gray-800">{buktiFile?.name}</p>
+                          <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1 mt-0.5">
+                            <CheckCircle size={13} className="text-emerald-600 flex-shrink-0" />
+                            Bukti transfer berhasil dipilih
+                          </p>
                         </div>
                       </div>
                     )}

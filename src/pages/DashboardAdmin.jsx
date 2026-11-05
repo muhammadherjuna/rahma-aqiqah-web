@@ -47,7 +47,7 @@ function UploadSyariatModal({ pesanan, onClose, onSave }) {
     if (!rawFile) return;
 
     setIsUploadingFoto(true);
-    setUploadMsg('Mengompresi ke format WebP...');
+    setUploadMsg('Menyiapkan foto dokumentasi...');
 
     // 1. Kompresi gambar otomatis ke WebP di sisi klien
     const compressed = await compressImageToWebP(rawFile, { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
@@ -57,15 +57,15 @@ function UploadSyariatModal({ pesanan, onClose, onSave }) {
       ratio: compressed.compressionRatio,
     });
 
-    setUploadMsg('Mengunggah WebP ke Cloud Storage...');
+    setUploadMsg('Mengunggah foto ke sistem...');
 
     // 2. Unggah file WebP ke Supabase Storage bucket rahma-media/syariat-docs
     const result = await uploadFileToStorage(compressed.file, 'syariat-docs');
     if (result.success) {
       setFotoUrl(result.publicUrl);
-      setUploadMsg('Foto WebP berhasil tersimpan di Cloud Storage!');
+      setUploadMsg('Foto dokumentasi berhasil tersimpan!');
     } else {
-      setUploadMsg('Gagal upload ke cloud, menggunakan pratinjau WebP lokal.');
+      setUploadMsg('Menggunakan pratinjau foto lokal.');
       setFotoUrl(compressed.previewUrl || URL.createObjectURL(compressed.file));
     }
     setIsUploadingFoto(false);
@@ -137,9 +137,9 @@ function UploadSyariatModal({ pesanan, onClose, onSave }) {
                 <Upload size={24} className="text-emerald-400 mb-2" />
               )}
               <span className="text-sm text-gray-600">
-                {isUploadingFoto ? 'Sedang memproses & kompresi WebP...' : 'Pilih file foto dari perangkat'}
+                {isUploadingFoto ? 'Sedang memproses foto...' : 'Pilih file foto dari perangkat'}
               </span>
-              <span className="text-xs text-gray-400">Otomatis dikonversi ke WebP ringan (maks 10MB)</span>
+              <span className="text-xs text-gray-400">Format gambar JPG atau PNG (maks. 10MB)</span>
               <input type="file" accept="image/*" className="hidden" onChange={handleFotoUpload} disabled={isUploadingFoto} />
             </label>
 
