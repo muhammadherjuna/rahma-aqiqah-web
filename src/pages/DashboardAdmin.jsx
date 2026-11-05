@@ -9,10 +9,10 @@ import {
 } from 'lucide-react';
 import {
   KUOTA_JADWAL_INIT, STATUS_OPERASIONAL_LIST,
-  formatRupiah, getPaketById, getMenuDagingById, getMenuJeroanById, getNasiBoxById
+  formatRupiah, formatTanggalIndonesia, getPaketById, getMenuDagingById, getMenuJeroanById, getNasiBoxById
 } from '../data/mockData';
 import { getAdminSession, clearAdminSession } from '../utils/auth';
-import { getDailyQuotas, updateOrderStatus, upsertSyariatDoc, uploadFileToStorage } from '../lib/supabaseClient';
+import { getDailyQuotas, updateOrderStatus, updatePaymentStatus, upsertSyariatDoc, uploadFileToStorage } from '../lib/supabaseClient';
 import { compressImageToWebP } from '../utils/imageCompressor';
 import { parseVideoUrl } from '../utils/videoHelper';
 
@@ -424,47 +424,114 @@ function SuratJalanModal({ pesanan, onClose }) {
   );
 }
 
-function PesananDetailModal({ pesanan, onClose }) {
+function PesananDetailModal({ pesanan, onClose, onPaymentChange }) {
   const paket = getPaketById(pesanan.paketId);
   const nasiBox = getNasiBoxById(pesanan.nasiBoxId);
+  const total = pesanan.totalHarga || 0;
+  const dp50 = Math.ceil(total * 0.5);
+  const isDP = pesanan.statusPembayaran === 'DP 50% Lunas';
+
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-emerald-800 text-lg">Detail Pesanan</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl my-auto max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+          <div>
+            <h3 className="font-bold text-emerald-800 text-lg">Detail Pesanan</h3>
+            <p className="text-xs text-gray-400 font-mono">{pesanan.id}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
         </div>
-        <div className="space-y-3 text-sm">
+
+        {/* Status Pembayaran Card with 1-click update */}
+        <div className={`p-3.5 rounded-2xl border mb-4 flex items-center justify-between gap-3 ${
+          isDP ? 'bg-amber-50/80 border-amber-200' : 'bg-emerald-50/80 border-emerald-200'
+        }`}>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Status Pembayaran</p>
+            <p className={`font-bold text-sm ${isDP ? 'text-amber-800' : 'text-emerald-800'}`}>
+              {pesanan.statusPembayaran}
+            </p>
+            {isDP && (
+              <p className="text-xs text-amber-700 mt-0.5">
+                Sisa pelunasan: <strong>{formatRupiah(total - dp50)}</strong>
+              </p>
+            )}
+          </div>
+          {onPaymentChange && (
+            <button
+              type="button"
+              onClick={() => onPaymentChange(pesanan.id, isDP ? 'Lunas 100%' : 'DP 50% Lunas')}
+              className={`text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                isDP
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-white hover:bg-amber-50 text-amber-700 border border-amber-300'
+              }`}
+            >
+              {isDP ? <><CheckCircle size={14} /> Tandai Lunas 100%</> : 'Ubah ke DP 50%'}
+            </button>
+          )}
+        </div>
+
+        {/* Bukti Transfer jika ada */}
+        {pesanan.buktiTransfer && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-2xl border border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                <FileText size={14} className="text-emerald-600" /> Bukti Transfer Pelanggan
+              </span>
+              <a
+                href={pesanan.buktiTransfer}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-emerald-700 hover:underline font-semibold"
+              >
+                Lihat Asli
+              </a>
+            </div>
+            <a href={pesanan.buktiTransfer} target="_blank" rel="noopener noreferrer">
+              <img
+                src={pesanan.buktiTransfer}
+                alt="Bukti Transfer"
+                className="max-h-48 w-full object-contain rounded-xl bg-white border border-gray-200"
+              />
+            </a>
+          </div>
+        )}
+
+        <div className="space-y-2.5 text-sm">
           {[
-            ['Invoice', pesanan.id],
             ['Nama Anak', `${pesanan.namaAnak} ${pesanan.binBinti} ${pesanan.namaOrtu}`],
-            ['Jenis Kelamin', pesanan.jenisKelamin === 'laki' ? 'Laki-laki' : 'Perempuan'],
-            ['Tanggal Lahir', pesanan.tglLahir],
-            ['Jumlah Ekor', `${pesanan.jumlahEkor} Ekor`],
-            ['Paket', `Tipe ${pesanan.paketId} (${paket?.porsiDaging} Porsi Daging dan ${paket?.porsiJeroan} Porsi Jeroan)`],
+            ['Jenis Kelamin', pesanan.jenisKelamin === 'laki' ? 'Laki-laki (2 Ekor)' : 'Perempuan (1 Ekor)'],
+            ['Tanggal Lahir', formatTanggalIndonesia(pesanan.tglLahir, false)],
+            ['Paket Kambing', `Tipe ${pesanan.paketId} (${paket?.porsiDaging} Porsi Daging & ${paket?.porsiJeroan} Porsi Jeroan)`],
             ['Olahan Daging', getMenuDagingById(pesanan.menuDaging)?.nama || 'Standar Dapur'],
             ['Olahan Jeroan', getMenuJeroanById(pesanan.menuJeroan)?.nama || 'Standar Dapur'],
             ['Nasi Box', pesanan.nasiBoxId !== 'none' ? `${nasiBox?.nama} \u00d7 ${pesanan.jumlahBox} box` : 'Tanpa Nasi Box'],
-            ['Jadwal Produksi', pesanan.tglProduksi],
-            ['Sesi', pesanan.sesi === 'pagi' ? 'Pagi (08.00 sampai 11.00 WIB)' : 'Sore (13.00 sampai 16.00 WIB)'],
-            ['Status Bayar', pesanan.statusPembayaran],
-            ['Total Harga', formatRupiah(pesanan.totalHarga)],
+            ['Jadwal Produksi', `${formatTanggalIndonesia(pesanan.tglProduksi, true)}`],
+            ['Sesi Pengiriman', pesanan.sesi === 'pagi' ? 'Pagi (08.00 - 11.00 WIB)' : 'Sore (13.00 - 16.00 WIB)'],
+            ['WhatsApp Pemesan', pesanan.noWa || '-'],
+            ['Total Tagihan', formatRupiah(pesanan.totalHarga)],
+            ...(isDP ? [
+              ['DP 50% Yang Diterima', formatRupiah(dp50)],
+              ['Sisa Tagihan Pelunasan', formatRupiah(total - dp50)],
+            ] : []),
           ].map(([k, v]) => (
             <div key={k} className="flex justify-between gap-2 border-b border-gray-100 pb-2">
-              <span className="text-gray-500">{k}</span>
-              <span className="font-semibold text-gray-800 text-right">{v}</span>
+              <span className="text-gray-500 text-xs">{k}</span>
+              <span className="font-semibold text-gray-800 text-right text-xs">{v}</span>
             </div>
           ))}
           {pesanan.catatan && (
-            <div>
-              <span className="text-gray-500">Catatan Dapur</span>
-              <p className="text-gray-700 text-xs mt-1 bg-gray-50 rounded-lg p-2">{pesanan.catatan}</p>
+            <div className="pt-1">
+              <span className="text-gray-500 text-xs block mb-1">Catatan Khusus Pemesan:</span>
+              <p className="text-gray-700 text-xs bg-gray-50 rounded-lg p-2.5 border border-gray-200">{pesanan.catatan}</p>
             </div>
           )}
         </div>
+
         <button onClick={onClose}
-          className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-colors">
-          Tutup
+          className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-colors cursor-pointer">
+          Tutup Detail
         </button>
       </div>
     </div>
@@ -504,6 +571,11 @@ function WhatsAppAdminModal({ pesanan, onClose }) {
       id: 'selesai',
       label: 'Syariat Selesai & E-Sertifikat',
       text: `Alhamdulillah seluruh rangkaian aqiqah ananda *${pesanan.namaAnak}* telah selesai ditunaikan dengan lancar. Dokumentasi foto, rekaman video doa, dan E-Sertifikat Aqiqah resmi kini sudah dapat diakses dan diunduh di menu Lacak Pesanan kami dengan nomor invoice: *${pesanan.id}*.\n\nSemoga ananda tumbuh menjadi anak yang saleh/salehah dan berbakti kepada kedua orang tua. Jazakumullah khairan katsiran.`,
+    },
+    {
+      id: 'pelunasan',
+      label: 'Konfirmasi Pelunasan 100%',
+      text: `Assalamualaikum Warahmatullahi Wabarakatuh Bpk/Ibu ${pesanan.namaOrtu},\n\nAlhamdulillah, sisa pelunasan pembayaran aqiqah ananda *${pesanan.namaAnak}* (${pesanan.id}) telah kami terima dengan status *LUNAS 100%*. Terima kasih banyak atas kelancaran transaksinya.\n\nJazakumullah khairan katsiran.`,
     },
   ];
 
@@ -641,6 +713,16 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
     await updateOrderStatus(id, newStatus);
   };
 
+  // Perbarui status pembayaran langsung ke Supabase (DP 50% <-> Lunas 100%)
+  const handlePaymentChange = async (id, newPaymentStatus) => {
+    setPesananList(prev => prev.map(p => p.id === id ? { ...p, statusPembayaran: newPaymentStatus } : p));
+    if (detailModal && detailModal.id === id) {
+      setDetailModal(prev => ({ ...prev, statusPembayaran: newPaymentStatus }));
+    }
+    await updatePaymentStatus(id, newPaymentStatus);
+    if (onRefresh) onRefresh();
+  };
+
   // Simpan dokumentasi syariat langsung ke Supabase
   const handleSyariatSave = async (updatedPesanan) => {
     setPesananList(prev => prev.map(p => p.id === updatedPesanan.id ? updatedPesanan : p));
@@ -720,7 +802,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
         <UploadSyariatModal pesanan={uploadModal} onClose={() => setUploadModal(null)} onSave={handleSyariatSave} />
       )}
       {detailModal && (
-        <PesananDetailModal pesanan={detailModal} onClose={() => setDetailModal(null)} />
+        <PesananDetailModal pesanan={detailModal} onClose={() => setDetailModal(null)} onPaymentChange={handlePaymentChange} />
       )}
       {suratJalanModal && (
         <SuratJalanModal pesanan={suratJalanModal} onClose={() => setSuratJalanModal(null)} />
@@ -849,9 +931,30 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                           </p>
                         </td>
                         <td className="px-4 py-4">
-                          <span className={`inline-block px-2 py-1 rounded-lg border text-xs font-semibold ${BAYAR_COLORS[p.statusPembayaran]}`}>
-                            {p.statusPembayaran}
-                          </span>
+                          <div className="space-y-1.5 min-w-[125px]">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-lg border text-xs font-semibold ${BAYAR_COLORS[p.statusPembayaran] || 'bg-gray-100 text-gray-700'}`}>
+                              {p.statusPembayaran}
+                            </span>
+                            {p.statusPembayaran === 'DP 50% Lunas' ? (
+                              <button
+                                type="button"
+                                onClick={() => handlePaymentChange(p.id, 'Lunas 100%')}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-md transition-all shadow-2xs cursor-pointer whitespace-nowrap"
+                                title="Klik jika sisa pelunasan telah diterima"
+                              >
+                                <CheckCircle size={11} /> Tandai Lunas 100%
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handlePaymentChange(p.id, 'DP 50% Lunas')}
+                                className="text-[10px] text-gray-400 hover:text-amber-700 block underline cursor-pointer"
+                                title="Kembalikan status ke DP 50%"
+                              >
+                                Ubah ke DP 50%
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-4">
                           <select

@@ -217,6 +217,27 @@ export async function updateOrderStatus(orderId, newStatus) {
 }
 
 /**
+ * Memperbarui status pembayaran pesanan dari Dashboard Admin (misal: 'DP 50% Lunas' -> 'Lunas 100%')
+ */
+export async function updatePaymentStatus(orderId, newPaymentStatus) {
+  try {
+    const { error } = await supabase
+      .from('rahma_orders')
+      .update({
+        status_pembayaran: newPaymentStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error('Gagal update status pembayaran:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Menyimpan atau memperbarui dokumentasi syariat pesanan
  */
 export async function upsertSyariatDoc(orderId, syariatData) {
