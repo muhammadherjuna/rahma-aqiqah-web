@@ -28,6 +28,26 @@ export async function getDailyQuotas() {
   }
 }
 
+/**
+ * Memperbarui kuota harian (misal: Owner mengunci tanggal libur / membuka kuota)
+ */
+export async function updateDailyQuota(tanggal, updates) {
+  try {
+    const { data, error } = await supabase
+      .from('rahma_daily_quotas')
+      .update(updates)
+      .eq('tanggal', tanggal)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, data };
+  } catch (err) {
+    console.error('Gagal update kuota harian:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // Helper normalisasi dokumen syariat (bisa array atau object dari Supabase 1-to-1 relation)
 function normalizeSyariat(doc) {
   if (!doc) return null;

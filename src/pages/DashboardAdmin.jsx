@@ -1,19 +1,19 @@
 // src/pages/DashboardAdmin.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Users, Calendar, TrendingUp, CheckCircle, AlertCircle, Clock,
   Truck, ChefHat, Scissors, Eye, EyeOff, X, FileText, Camera, Award,
   Package, Shield, Upload, Sun, Sunset, LogOut, ExternalLink, UserCheck,
   RefreshCw, Loader2, Printer, MessageSquare, Phone, Film, Play, Search, ChevronDown, Filter,
-  ChevronLeft, ChevronRight, KeyRound, Lock
+  ChevronLeft, ChevronRight, KeyRound, Lock, Unlock, LayoutGrid, List, CalendarDays, Check
 } from 'lucide-react';
 import {
   KUOTA_JADWAL_INIT, STATUS_OPERASIONAL_LIST,
   formatRupiah, formatTanggalIndonesia, getPaketById, getMenuDagingById, getMenuJeroanById, getNasiBoxById
 } from '../data/mockData';
 import { getAdminSession, clearAdminSession, updateAdminPassword } from '../utils/auth';
-import { getDailyQuotas, updateOrderStatus, updatePaymentStatus, upsertSyariatDoc, uploadFileToStorage } from '../lib/supabaseClient';
+import { getDailyQuotas, updateDailyQuota, updateOrderStatus, updatePaymentStatus, upsertSyariatDoc, uploadFileToStorage } from '../lib/supabaseClient';
 import { compressImageToWebP } from '../utils/imageCompressor';
 import { parseVideoUrl } from '../utils/videoHelper';
 
@@ -1023,12 +1023,188 @@ function ChangePasswordModal({ session, onClose }) {
   );
 }
 
+function CalendarDayDetailModal({
+  dateItem,
+  orders = [],
+  onClose,
+  isOwner,
+  onToggleStatus,
+  isToggling,
+  onOpenOrderDetail
+}) {
+  if (!dateItem) return null;
+
+  const isPenuh = dateItem.status === 'penuh' || dateItem.terpakai >= dateItem.maks;
+  const sisaSlot = Math.max(0, dateItem.maks - dateItem.terpakai);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl my-auto max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        {/* Modal Header */}
+        <div className="flex items-start justify-between pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center">
+              <Calendar size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800 text-base">
+                {formatTanggalIndonesia(dateItem.tanggal, true)}
+              </h3>
+              <p className="text-xs text-gray-500">
+                Detail Kapasitas Produksi Dapur
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="py-4 space-y-4 overflow-y-auto">
+          {/* Status Box */}
+          <div className={`p-4 rounded-2xl border ${
+            isPenuh ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50/70 border-emerald-200'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-600">Status Kuota Tanggal Ini</span>
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                isPenuh
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+              }`}>
+                {isPenuh ? 'Penuh / Ditutup' : 'Tersedia'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-gray-200/60">
+              <div className="bg-white/80 p-2 rounded-xl">
+                <span className="text-[10px] text-gray-500 block font-medium">Kapasitas Maks</span>
+                <strong className="text-sm font-bold text-gray-800">{dateItem.maks} Ekor</strong>
+              </div>
+              <div className="bg-white/80 p-2 rounded-xl">
+                <span className="text-[10px] text-gray-500 block font-medium">Terpakai</span>
+                <strong className={`text-sm font-bold ${isPenuh ? 'text-rose-600' : 'text-emerald-700'}`}>
+                  {dateItem.terpakai} Ekor
+                </strong>
+              </div>
+              <div className="bg-white/80 p-2 rounded-xl">
+                <span className="text-[10px] text-gray-500 block font-medium">Sisa Slot</span>
+                <strong className="text-sm font-bold text-gray-800">{sisaSlot} Ekor</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* List Pesanan Terjadwal */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <h4 className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                <Package size={14} className="text-emerald-600" />
+                Pesanan Terdaftar ({orders.length})
+              </h4>
+              <span className="text-[11px] text-gray-500">
+                {orders.reduce((sum, o) => sum + (o.jumlahEkor || 1), 0)} Ekor Terjadwal
+              </span>
+            </div>
+
+            {orders.length === 0 ? (
+              <div className="text-center py-6 px-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                <CalendarDays size={28} className="mx-auto text-gray-400 mb-2" />
+                <p className="text-xs font-semibold text-gray-600">Belum Ada Pesanan Terjadwal</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Dapur siap menerima order baru untuk tanggal ini</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                {orders.map((ord) => (
+                  <div key={ord.id} className="p-3 bg-gray-50 hover:bg-emerald-50/50 rounded-2xl border border-gray-200 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono font-bold text-emerald-800">{ord.id}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-white border border-gray-200 text-gray-700">
+                            {ord.sesi === 'pagi' ? 'Pagi (08-11 WIB)' : 'Sore (13-16 WIB)'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-800 mt-1">
+                          {ord.namaAnak} <span className="font-normal text-gray-500">({ord.binBinti} {ord.namaOrtu})</span>
+                        </p>
+                        <p className="text-[11px] text-gray-600 mt-0.5">
+                          Tipe {ord.paketId} ({ord.jumlahEkor} Ekor) &bull; {ord.statusOperasional}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onOpenOrderDetail(ord)}
+                        className="shrink-0 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-100/70 border border-emerald-200 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <Eye size={12} /> Buka Detail
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Owner Quick Action: Lock / Unlock Day (Libur Dapur) */}
+          {isOwner && (
+            <div className="pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between gap-3 p-3 bg-amber-50/80 rounded-2xl border border-amber-200">
+                <div className="text-xs text-amber-900">
+                  <strong className="block font-bold">Wewenang Pemilik (Owner):</strong>
+                  <span className="text-[11px] text-amber-700 leading-tight block mt-0.5">
+                    {isPenuh
+                      ? 'Buka kuota agar pemesan di website dapat kembali memilih tanggal ini.'
+                      : 'Kunci tanggal ini untuk meliburkan dapur atau membatasi pesanan baru.'
+                    }
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isToggling}
+                  onClick={() => onToggleStatus(dateItem)}
+                  className={`shrink-0 text-xs font-bold px-3 py-2 rounded-xl text-white transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                    isPenuh
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  {isToggling ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : isPenuh ? (
+                    <><Unlock size={13} /> Buka Kuota</>
+                  ) : (
+                    <><Lock size={13} /> Kunci Tanggal</>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="pt-3 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardAdmin({ pesananList, setPesananList, onRefresh, isLoadingOrders }) {
   const [uploadModal, setUploadModal] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
   const [suratJalanModal, setSuratJalanModal] = useState(null);
   const [waModalPesanan, setWaModalPesanan] = useState(null);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [kuotaViewMode, setKuotaViewMode] = useState('grid'); // 'grid' | 'table'
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
+  const [isTogglingQuota, setIsTogglingQuota] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterJadwal, setFilterJadwal] = useState('semua'); // 'semua' | 'hari_ini' | 'besok'
   const [searchQuery, setSearchQuery] = useState('');
@@ -1242,6 +1418,62 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
 
   const sortedKuotaList = [...kuotaList].sort((a, b) => a.tanggal.localeCompare(b.tanggal));
 
+  const totalDaysPenuh = kuotaList.filter(k => k.status === 'penuh' || k.terpakai >= k.maks).length;
+  const totalDaysTersedia = kuotaList.filter(k => k.status !== 'penuh' && k.terpakai < k.maks).length;
+  const totalEkorTerjadwal = kuotaList.reduce((sum, k) => sum + (k.terpakai || 0), 0);
+
+  // Toggle kuota hari (Buka / Kunci Libur Dapur)
+  const handleToggleQuotaStatus = async (item) => {
+    if (!item || !isOwner) return;
+    const isCurrentlyPenuh = item.status === 'penuh' || item.terpakai >= item.maks;
+    const newStatus = isCurrentlyPenuh ? 'tersedia' : 'penuh';
+    setIsTogglingQuota(true);
+    try {
+      const res = await updateDailyQuota(item.tanggal, { status: newStatus });
+      if (res.success) {
+        setKuotaList(prev => prev.map(k => k.tanggal === item.tanggal ? { ...k, status: newStatus } : k));
+        setSelectedCalendarDate(prev => prev ? { ...prev, status: newStatus } : null);
+      }
+    } catch (e) {
+      console.error('Gagal update status kuota:', e);
+    } finally {
+      setIsTogglingQuota(false);
+    }
+  };
+
+  // Kalender Grid Bulanan November 2026 (Senin - Minggu, 42 kotak pas)
+  const calendarDays = useMemo(() => {
+    const days = [];
+    // 6 slot kosong awalan (1 Nov 2026 adalah hari Minggu)
+    for (let i = 0; i < 6; i++) {
+      days.push({ isBlank: true, key: `blank-start-${i}` });
+    }
+    // 30 hari November 2026
+    for (let d = 1; d <= 30; d++) {
+      const dateStr = `2026-11-${String(d).padStart(2, '0')}`;
+      const quotaItem = kuotaList.find(k => k.tanggal === dateStr) || {
+        tanggal: dateStr,
+        maks: 5,
+        terpakai: 0,
+        status: 'tersedia'
+      };
+      const orders = pesananList.filter(p => p.tglProduksi === dateStr);
+      days.push({
+        isBlank: false,
+        key: dateStr,
+        dayNumber: d,
+        dateStr,
+        quota: quotaItem,
+        orders,
+      });
+    }
+    // 6 slot kosong penutup (agar grid simetris 6 baris x 7 kolom)
+    for (let i = 0; i < 6; i++) {
+      days.push({ isBlank: true, key: `blank-end-${i}` });
+    }
+    return days;
+  }, [kuotaList, pesananList]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-gradient-to-r from-emerald-800 to-emerald-700 text-white px-6 py-4 shadow-md">
@@ -1335,6 +1567,20 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
       )}
       {waModalPesanan && (
         <WhatsAppAdminModal pesanan={waModalPesanan} onClose={() => setWaModalPesanan(null)} isOwner={isOwner} />
+      )}
+      {selectedCalendarDate && (
+        <CalendarDayDetailModal
+          dateItem={selectedCalendarDate}
+          orders={pesananList.filter(p => p.tglProduksi === selectedCalendarDate.tanggal)}
+          onClose={() => setSelectedCalendarDate(null)}
+          isOwner={isOwner}
+          onToggleStatus={handleToggleQuotaStatus}
+          isToggling={isTogglingQuota}
+          onOpenOrderDetail={(ord) => {
+            setSelectedCalendarDate(null);
+            setDetailModal(ord);
+          }}
+        />
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -1680,94 +1926,340 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
           </div>
         )}
 
-        {/* Tabel Kuota Kalender */}
+        {/* Kontrol Kuota Kalender Dapur */}
         {activeSection === 'kuota' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="font-bold text-emerald-800">
-                  {isOwner ? 'Kontrol Kuota Kalender Dapur' : 'Kalender Kapasitas Produksi Dapur'}
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Kapasitas maksimal dapur: 5 Ekor per Hari (Sistem Proteksi Anti-Overbooking Aktif)
-                </p>
+          <div className="space-y-6">
+            {/* Ringkasan Status Kuota Bulan Ini */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs">
+                <span className="text-xs font-semibold text-gray-500 block">Total Hari Penuh</span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <strong className="text-2xl font-black text-rose-600">{totalDaysPenuh}</strong>
+                  <span className="text-xs text-gray-400">dari {kuotaList.length} hari</span>
+                </div>
+                <span className="text-[11px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">
+                  Kuota 5/5 Terkunci
+                </span>
               </div>
-              <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${
-                isOwner
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  : 'bg-blue-50 text-blue-800 border-blue-200'
-              }`}>
-                {isOwner ? 'Wewenang Penuh Pemilik' : 'Tampilan Informatif Kesiapan Dapur'}
-              </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    {['Tanggal', 'Kuota Maks', 'Kuota Terpakai', 'Sisa Kuota', 'Utilisasi', 'Status Jadwal'].map(h => (
-                      <th key={h} className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {sortedKuotaList.map((k) => {
-                    const sisa = k.maks - k.terpakai;
-                    const pct = Math.round((k.terpakai / k.maks) * 100);
-                    const isPenuh = k.status === 'penuh';
-                    const isToday = k.tanggal === today;
-                    return (
-                      <tr key={k.tanggal} className={`hover:bg-gray-50 transition-colors ${isToday ? 'bg-amber-50' : ''}`}>
-                        <td className="px-6 py-4">
-                          <p className="font-semibold text-gray-800">
-                            {new Date(k.tanggal).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
-                          </p>
-                          {isToday && <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Hari Ini</span>}
-                        </td>
-                        <td className="px-6 py-4 font-semibold text-gray-700">{k.maks} Ekor</td>
-                        <td className="px-6 py-4 font-semibold text-gray-700">{k.terpakai} Ekor</td>
-                        <td className="px-6 py-4">
-                          <span className={`font-bold ${isPenuh ? 'text-red-600' : 'text-emerald-600'}`}>
-                            {sisa} Ekor
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full transition-all ${isPenuh ? 'bg-red-500' : pct >= 60 ? 'bg-amber-400' : 'bg-emerald-500'}`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-semibold text-gray-600">{pct}%</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border ${
-                            isPenuh
-                              ? 'bg-red-100 text-red-700 border-red-200'
-                              : k.terpakai > 0
-                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                              : 'bg-gray-100 text-gray-600 border-gray-200'
-                          }`}>
-                            {isPenuh
-                              ? <><AlertCircle size={12} /> Penuh (Terkunci Otomatis)</>
-                              : k.terpakai > 0
-                              ? <><CheckCircle size={12} /> Tersedia (Sisa {sisa} dari {k.maks})</>
-                              : <>Kosong (5 dari 5 Tersedia)</>
-                            }
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs">
+                <span className="text-xs font-semibold text-gray-500 block">Hari Masih Tersedia</span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <strong className="text-2xl font-black text-emerald-600">{totalDaysTersedia}</strong>
+                  <span className="text-xs text-gray-400">hari aktif</span>
+                </div>
+                <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">
+                  Bisa Terima Pesanan
+                </span>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs">
+                <span className="text-xs font-semibold text-gray-500 block">Total Ekor Terjadwal</span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <strong className="text-2xl font-black text-gray-800">{totalEkorTerjadwal}</strong>
+                  <span className="text-xs text-gray-400">ekor kambing</span>
+                </div>
+                <span className="text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">
+                  Bulan November 2026
+                </span>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-2xs">
+                <span className="text-xs font-semibold text-gray-500 block">Kapasitas Maksimal</span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <strong className="text-2xl font-black text-amber-700">5 Ekor</strong>
+                  <span className="text-xs text-gray-400">per hari</span>
+                </div>
+                <span className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">
+                  Anti-Overbooking Syariat
+                </span>
+              </div>
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> Tersedia (utilisasi di bawah 60%)</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400 inline-block"></span> Hampir penuh (utilisasi 60-99%)</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span> Penuh (100%), Anti-overbooking aktif</span>
+            {/* Container Kalender / Tabel */}
+            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-emerald-800 text-base">
+                      {isOwner ? 'Kontrol Kuota Kalender Dapur' : 'Kalender Kapasitas Produksi Dapur'}
+                    </h3>
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      November 2026
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {kuotaViewMode === 'grid'
+                      ? 'Klik kotak tanggal mana pun untuk melihat pesanan terdaftar atau mengatur status libur dapur.'
+                      : 'Tampilan daftar tabel kuota harian lengkap 30 hari bulan November 2026.'
+                    }
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Switcher Tampilan Grid vs Tabel */}
+                  <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setKuotaViewMode('grid')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        kuotaViewMode === 'grid'
+                          ? 'bg-white text-emerald-800 shadow-2xs'
+                          : 'text-gray-600 hover:text-emerald-800'
+                      }`}
+                    >
+                      <LayoutGrid size={13} />
+                      <span>Kalender Grid</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setKuotaViewMode('table')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        kuotaViewMode === 'table'
+                          ? 'bg-white text-emerald-800 shadow-2xs'
+                          : 'text-gray-600 hover:text-emerald-800'
+                      }`}
+                    >
+                      <List size={13} />
+                      <span>Daftar Tabel</span>
+                    </button>
+                  </div>
+
+                  <span className={`hidden sm:inline-flex text-xs px-3 py-1.5 rounded-xl font-semibold border ${
+                    isOwner
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-blue-50 text-blue-800 border-blue-200'
+                  }`}>
+                    {isOwner ? 'Wewenang Penuh Pemilik' : 'Informatif Kesiapan Dapur'}
+                  </span>
+                </div>
+              </div>
+
+              {/* TAMPILAN 1: GRID KALENDER BULANAN (OPSI A) */}
+              {kuotaViewMode === 'grid' && (
+                <div className="p-4 sm:p-6">
+                  {/* Header Nama Hari (Senin s/d Minggu) */}
+                  <div className="grid grid-cols-7 gap-2 sm:gap-3 mb-2.5 text-center">
+                    {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'].map((hari, idx) => (
+                      <div
+                        key={hari}
+                        className={`py-2 text-xs font-bold uppercase tracking-wider rounded-xl ${
+                          idx >= 5 ? 'text-rose-600 bg-rose-50/60' : 'text-gray-600 bg-gray-50'
+                        }`}
+                      >
+                        <span className="hidden sm:inline">{hari}</span>
+                        <span className="sm:hidden">{hari.slice(0, 3)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Grid 42 Kotak (Bulan November 2026) */}
+                  <div className="grid grid-cols-7 gap-2 sm:gap-3">
+                    {calendarDays.map((cell) => {
+                      if (cell.isBlank) {
+                        return (
+                          <div
+                            key={cell.key}
+                            className="p-2 sm:p-3 rounded-2xl bg-gray-50/30 border border-dashed border-gray-100 min-h-[95px] sm:min-h-[115px] opacity-30 select-none hidden sm:block"
+                          />
+                        );
+                      }
+
+                      const k = cell.quota;
+                      const isPenuh = k.status === 'penuh' || k.terpakai >= k.maks;
+                      const isToday = cell.dateStr === today;
+                      const isPast = cell.dateStr < today;
+                      const pct = Math.min(100, Math.round((k.terpakai / k.maks) * 100));
+                      const dayOrdersCount = cell.orders.length;
+
+                      let badgeClass = 'bg-gray-100 text-gray-600 border-gray-200';
+                      let badgeText = '0/5 Kosong';
+                      let barColor = 'bg-gray-200';
+
+                      if (isPenuh) {
+                        badgeClass = 'bg-rose-100 text-rose-800 border-rose-200 font-bold';
+                        badgeText = '5/5 Penuh';
+                        barColor = 'bg-rose-500';
+                      } else if (k.terpakai >= 3) {
+                        badgeClass = 'bg-amber-100 text-amber-800 border-amber-200 font-semibold';
+                        badgeText = `${k.terpakai}/5 Ekor`;
+                        barColor = 'bg-amber-500';
+                      } else if (k.terpakai > 0) {
+                        badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200 font-semibold';
+                        badgeText = `${k.terpakai}/5 Ekor`;
+                        barColor = 'bg-emerald-500';
+                      }
+
+                      return (
+                        <button
+                          key={cell.key}
+                          type="button"
+                          onClick={() => setSelectedCalendarDate(k)}
+                          className={`p-2 sm:p-3 rounded-2xl border text-left transition-all flex flex-col justify-between min-h-[95px] sm:min-h-[115px] cursor-pointer group ${
+                            isToday
+                              ? 'border-2 border-emerald-500 bg-emerald-50/50 shadow-sm ring-2 ring-emerald-500/20'
+                              : isPast
+                              ? 'border-gray-200 bg-gray-50/60 opacity-80 hover:opacity-100 hover:border-gray-300'
+                              : 'border-gray-200 bg-white hover:border-emerald-400 hover:shadow-md'
+                          }`}
+                        >
+                          {/* Angka Tanggal & Tag Hari Ini / Lewat */}
+                          <div className="flex items-start justify-between w-full">
+                            <span className={`text-sm sm:text-base font-black ${
+                              isToday
+                                ? 'text-emerald-700'
+                                : isPast
+                                ? 'text-gray-400'
+                                : 'text-gray-800 group-hover:text-emerald-700'
+                            }`}>
+                              {cell.dayNumber}
+                            </span>
+
+                            {isToday ? (
+                              <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-600 text-white shrink-0">
+                                Hari Ini
+                              </span>
+                            ) : isPast ? (
+                              <span className="text-[9px] text-gray-400 hidden sm:inline">Lewat</span>
+                            ) : null}
+                          </div>
+
+                          {/* Badge Status Kuota & Jumlah Pesanan */}
+                          <div className="w-full my-1 space-y-1">
+                            <span className={`text-[10px] px-1.5 sm:px-2 py-0.5 rounded-lg border block text-center truncate ${badgeClass}`}>
+                              {badgeText}
+                            </span>
+
+                            {dayOrdersCount > 0 && (
+                              <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-800 bg-emerald-100/90 px-1.5 py-0.5 rounded-md flex items-center justify-center gap-1">
+                                <Users size={10} className="shrink-0" />
+                                <span>{dayOrdersCount} Pesanan</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Progress Bar Utilisasi */}
+                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${barColor}`}
+                              style={{ width: `${isPenuh ? 100 : pct}%` }}
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* TAMPILAN 2: DAFTAR TABEL LENGKAP 30 HARI */}
+              {kuotaViewMode === 'table' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        {['Tanggal', 'Kuota Maks', 'Kuota Terpakai', 'Sisa Kuota', 'Utilisasi', 'Status Jadwal', 'Aksi'].map(h => (
+                          <th key={h} className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {sortedKuotaList.map((k) => {
+                        const sisa = Math.max(0, k.maks - k.terpakai);
+                        const pct = Math.min(100, Math.round((k.terpakai / k.maks) * 100));
+                        const isPenuh = k.status === 'penuh' || k.terpakai >= k.maks;
+                        const isToday = k.tanggal === today;
+                        const ordersCount = pesananList.filter(p => p.tglProduksi === k.tanggal).length;
+
+                        return (
+                          <tr key={k.tanggal} className={`hover:bg-gray-50 transition-colors ${isToday ? 'bg-amber-50/70' : ''}`}>
+                            <td className="px-6 py-4">
+                              <p className="font-semibold text-gray-800">
+                                {new Date(k.tanggal).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                              </p>
+                              {isToday && (
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                                  Hari Ini
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 font-semibold text-gray-700">{k.maks} Ekor</td>
+                            <td className="px-6 py-4 font-semibold text-gray-700">{k.terpakai} Ekor</td>
+                            <td className="px-6 py-4">
+                              <span className={`font-bold ${isPenuh ? 'text-red-600' : 'text-emerald-600'}`}>
+                                {sisa} Ekor
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full transition-all ${isPenuh ? 'bg-red-500' : pct >= 60 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+                                    style={{ width: `${isPenuh ? 100 : pct}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs font-semibold text-gray-600">{pct}%</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border ${
+                                isPenuh
+                                  ? 'bg-red-100 text-red-700 border-red-200'
+                                  : k.terpakai > 0
+                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                  : 'bg-gray-100 text-gray-600 border-gray-200'
+                              }`}>
+                                {isPenuh
+                                  ? <><AlertCircle size={12} /> Penuh (Terkunci Otomatis)</>
+                                  : k.terpakai > 0
+                                  ? <><CheckCircle size={12} /> Tersedia (Sisa {sisa} dari {k.maks})</>
+                                  : <>Kosong (5 dari 5 Tersedia)</>
+                                }
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCalendarDate(k)}
+                                className="inline-flex items-center gap-1 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                              >
+                                <Eye size={13} />
+                                <span>Rincian {ordersCount > 0 ? `(${ordersCount})` : ''}</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Legend Indikator Status Kuota */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-wrap items-center justify-between gap-4 text-xs text-gray-500">
+                <div className="flex flex-wrap items-center gap-4">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                    Tersedia (1-2 Ekor)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                    Hampir Penuh (3-4 Ekor)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
+                    Penuh (5/5 Ekor Terkunci Otomatis)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-gray-300 inline-block"></span>
+                    Kosong (0/5 Ekor)
+                  </span>
+                </div>
+
+                <span className="text-[11px] text-gray-400">
+                  Klik tanggal untuk melihat rincian pemesanan dapur & wewenang buka/kunci libur
+                </span>
+              </div>
             </div>
           </div>
         )}

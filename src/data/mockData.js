@@ -98,13 +98,17 @@ export const SESI_KIRIM = [
   { id: 'sore', label: 'Sore (13.00 sampai 16.00 WIB)' },
 ];
 
-// Kuota jadwal harian (tanggal dalam format YYYY-MM-DD)
+// Kuota jadwal harian 1 bulan penuh November 2026 (Anti-Overbooking System)
 export const KUOTA_JADWAL_INIT = [
+  { tanggal: '2026-11-01', maks: 5, terpakai: 1, status: 'tersedia' },
+  { tanggal: '2026-11-02', maks: 5, terpakai: 0, status: 'tersedia' },
+  { tanggal: '2026-11-03', maks: 5, terpakai: 0, status: 'tersedia' },
+  { tanggal: '2026-11-04', maks: 5, terpakai: 0, status: 'tersedia' },
   { tanggal: '2026-11-05', maks: 5, terpakai: 4, status: 'tersedia' },
   { tanggal: '2026-11-06', maks: 5, terpakai: 5, status: 'penuh' },
   { tanggal: '2026-11-07', maks: 5, terpakai: 5, status: 'penuh' },
   { tanggal: '2026-11-08', maks: 5, terpakai: 2, status: 'tersedia' },
-  { tanggal: '2026-11-09', maks: 5, terpakai: 1, status: 'tersedia' },
+  { tanggal: '2026-11-09', maks: 5, terpakai: 5, status: 'penuh' },
   { tanggal: '2026-11-10', maks: 5, terpakai: 3, status: 'tersedia' },
   { tanggal: '2026-11-11', maks: 5, terpakai: 0, status: 'tersedia' },
   { tanggal: '2026-11-12', maks: 5, terpakai: 5, status: 'penuh' },
@@ -112,6 +116,20 @@ export const KUOTA_JADWAL_INIT = [
   { tanggal: '2026-11-14', maks: 5, terpakai: 1, status: 'tersedia' },
   { tanggal: '2026-11-15', maks: 5, terpakai: 0, status: 'tersedia' },
   { tanggal: '2026-11-16', maks: 5, terpakai: 2, status: 'tersedia' },
+  { tanggal: '2026-11-17', maks: 5, terpakai: 0, status: 'tersedia' },
+  { tanggal: '2026-11-18', maks: 5, terpakai: 1, status: 'tersedia' },
+  { tanggal: '2026-11-19', maks: 5, terpakai: 3, status: 'tersedia' },
+  { tanggal: '2026-11-20', maks: 5, terpakai: 4, status: 'tersedia' },
+  { tanggal: '2026-11-21', maks: 5, terpakai: 5, status: 'penuh' },
+  { tanggal: '2026-11-22', maks: 5, terpakai: 5, status: 'penuh' },
+  { tanggal: '2026-11-23', maks: 5, terpakai: 0, status: 'tersedia' },
+  { tanggal: '2026-11-24', maks: 5, terpakai: 1, status: 'tersedia' },
+  { tanggal: '2026-11-25', maks: 5, terpakai: 2, status: 'tersedia' },
+  { tanggal: '2026-11-26', maks: 5, terpakai: 0, status: 'tersedia' },
+  { tanggal: '2026-11-27', maks: 5, terpakai: 3, status: 'tersedia' },
+  { tanggal: '2026-11-28', maks: 5, terpakai: 4, status: 'tersedia' },
+  { tanggal: '2026-11-29', maks: 5, terpakai: 5, status: 'penuh' },
+  { tanggal: '2026-11-30', maks: 5, terpakai: 1, status: 'tersedia' },
 ];
 
 export const FOTO_SYARIAT_DEFAULT =
