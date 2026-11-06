@@ -1071,8 +1071,18 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
     navigate('/admin/login', { replace: true });
   };
 
-  const today = '2026-11-05';
-  const tomorrow = '2026-11-06';
+  // Tanggal Real-Time Otomatis Dinamis (Sesuai Kalender Sistem Lokal)
+  const getLocalDateISO = (dateObj = new Date()) => {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = getLocalDateISO(new Date());
+  const tomorrowObj = new Date();
+  tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+  const tomorrow = getLocalDateISO(tomorrowObj);
 
   const countHariIni = pesananList.filter(p => p.tglProduksi === today).length;
   const countBesok = pesananList.filter(p => p.tglProduksi === tomorrow).length;
