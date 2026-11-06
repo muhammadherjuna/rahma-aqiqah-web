@@ -1560,7 +1560,7 @@ export default function DashboardAdmin({ pesananList, setPesananList, onRefresh,
                           </p>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="space-y-1.5 min-w-[125px]">
+                          <div className="flex flex-col items-start gap-1.5 min-w-[130px]">
                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${BAYAR_COLORS[p.statusPembayaran] || 'bg-gray-100 text-gray-700'}`}>
                               {p.statusPembayaran === 'Lunas 100%' && <CheckCircle size={12} className="text-emerald-600 shrink-0" />}
                               {p.statusPembayaran}
